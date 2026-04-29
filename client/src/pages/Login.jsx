@@ -7,7 +7,7 @@ const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const navigate = useNavigate();
 
-  // THE DEPLOYMENT FIX: Dynamic API URL
+  // THE DEPLOYMENT FIX: Uses the Render URL from Vercel settings, or local for dev
   const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
   const handleSubmit = async (e) => {
@@ -15,28 +15,28 @@ const Login = () => {
     try {
       const res = await axios.post(`${API_URL}/auth/login`, formData);
       
-      // LOG THE RESPONSE: This helps us see the data structure in F12 console
+      // LOG THE DATA: Use F12 console to see exactly what the server sent
       console.log("Login Response Data:", res.data);
 
+      // Extract token and id using flexible matching
       const token = res.data.token;
       
-      // THE FLEXIBLE ID FIX: 
-      // This looks for 'userId', 'id', '_id', or a nested user._id
+      // Matches 'userId', 'id', '_id', or nested 'user._id' (common in MongoDB)
       const userId = res.data.userId || res.data.id || (res.data.user && res.data.user._id) || res.data._id || (res.data.user && res.data.user.id);
 
       if (token && userId) {
-        // Save the credentials to local storage
+        // Save to localStorage so Dashboard can find them
         localStorage.setItem('token', token);
         localStorage.setItem('userId', userId);
         
-        // Small delay to ensure browser storage is committed before navigation
+        // Small delay to ensure browser storage is finished before navigating
         setTimeout(() => {
           navigate('/dashboard');
-        }, 150);
+        }, 200);
       } else {
-        // This alerts you if the backend response didn't have what we need
+        // This alerts if the data keys don't match the expected names
         alert("Login successful, but Token or UserID was missing in the response.");
-        console.error("Missing Data Structure:", res.data);
+        console.error("Missing Data Structure. Received:", res.data);
       }
     } catch (err) {
       console.error("Login Error:", err);
@@ -47,7 +47,7 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6 font-sans">
       <div className="w-full max-w-md bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden">
-        {/* Background Glow Effect */}
+        {/* Visual Glow Effect */}
         <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-blue-600/10 rounded-full blur-3xl"></div>
         
         <div className="text-center mb-10 relative">
@@ -55,7 +55,7 @@ const Login = () => {
             <Code size={32} className="text-white" />
           </div>
           <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic">DevSync</h2>
-          <p className="text-slate-500 text-sm font-medium mt-2 uppercase tracking-widest">Unlock your productivity</p>
+          <p className="text-slate-500 text-sm font-medium mt-2 uppercase tracking-widest text-[10px]">Unlock your productivity</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 relative">
@@ -83,13 +83,13 @@ const Login = () => {
 
           <button 
             type="submit" 
-            className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl hover:bg-blue-50 transition-all flex items-center justify-center gap-2 group mt-6"
+            className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-2 group mt-6"
           >
             Sign In <LogIn size={18} className="group-hover:translate-x-1 transition-transform" />
           </button>
         </form>
 
-        <p className="text-center mt-8 text-xs text-slate-600 font-bold uppercase tracking-tight">
+        <p className="text-center mt-8 text-[10px] text-slate-600 font-bold uppercase tracking-widest">
           Don't have an account? <Link to="/register" className="text-blue-500 hover:underline ml-1">Sign Up</Link>
         </p>
       </div>
