@@ -2,7 +2,7 @@ import express from 'express';
 import Project from '../models/Project.js';
 const router = express.Router();
 
-// 1. GET PROJECTS (Jo abhi chal raha hai)
+// 1. GET PROJECTS
 router.get('/:userId', async (req, res) => {
     try {
         const projects = await Project.find({ owner: req.params.userId });
@@ -12,19 +12,31 @@ router.get('/:userId', async (req, res) => {
     }
 });
 
-// 2. ADD PROJECT (Fix for 500 Error)
+// 2. ADD PROJECT (JSON BYPASS - NO MULTER NEEDED)
 router.post('/add', async (req, res) => {
+    console.log("Incoming Data:", req.body); // Terminal mein check karna
     try {
-        // Agar aap image upload nahi kar rahe toh simple body save hogi
+        const { title, description, githubUrl, liveUrl, status, category, owner } = req.body;
+        
+        if (!title || !owner) {
+            return res.status(400).json({ message: "Title and Owner ID are required" });
+        }
+
         const newProject = new Project({
-            ...req.body,
-            owner: req.body.owner // Ensure owner field is mapped correctly
+            title,
+            description,
+            githubUrl,
+            liveUrl,
+            status: status || 'Completed',
+            category: category || 'Fullstack',
+            owner // Ye Dinesh Kumar ki ID honi chahiye
         });
+
         await newProject.save();
         res.status(201).json(newProject);
     } catch (err) {
-        console.error("Add Project Error:", err);
-        res.status(500).json({ message: "Backend failed to save project" });
+        console.error("Save Error:", err);
+        res.status(500).json({ message: "Database save failed" });
     }
 });
 

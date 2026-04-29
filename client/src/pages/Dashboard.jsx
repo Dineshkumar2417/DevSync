@@ -1,22 +1,14 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { 
-  Layout, Code, User, LogOut, Plus, X, Upload, Menu, Edit3,
-  CheckCircle2, BarChart3, Image as ImageIcon, Github, ExternalLink, Loader2
-} from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { useNavigate } from 'react-router-dom';
+import { Layout, Code, User, LogOut, Plus, X, Github, ExternalLink, Loader2, Image as ImageIcon } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [projects, setProjects] = useState([]);
   const [userData, setUserData] = useState(null);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [projectData, setProjectData] = useState({ 
@@ -28,30 +20,19 @@ const Dashboard = () => {
 
   const fetchData = async () => {
     const userId = localStorage.getItem('userId');
-    const token = localStorage.getItem('token');
     if (!userId) return navigate('/login');
-
     try {
-      const [userRes, projectRes] = await Promise.all([
+      const [uRes, pRes] = await Promise.all([
         axios.get(`${API_URL}/auth/user/${userId}`),
         axios.get(`${API_URL}/projects/${userId}`)
       ]);
-      
-      if (userRes.data) {
-        const fetchedUser = userRes.data.user || userRes.data;
-        setUserData(fetchedUser);
-      }
-      
-      const projectList = Array.isArray(projectRes.data) ? projectRes.data : (projectRes.data.projects || []);
-      setProjects(projectList);
-    } catch (error) {
-      console.error("Sync Error:", error);
-    } finally {
-      setTimeout(() => setIsInitialLoad(false), 800);
-    }
+      setUserData(uRes.data.user || uRes.data);
+      setProjects(Array.isArray(pRes.data) ? pRes.data : []);
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchData(); }, [location.key]);
+  useEffect(() => { fetchData(); }, []);
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
@@ -59,114 +40,63 @@ const Dashboard = () => {
     const userId = localStorage.getItem('userId');
     
     try {
-      // BYPASS: Sending as JSON instead of FormData to avoid Multer error
-      const payload = {
-        ...projectData,
-        owner: userId
-      };
-
+      // Direct JSON object - No FormData, No Multer issues
+      const payload = { ...projectData, owner: userId };
       await axios.post(`${API_URL}/projects/add`, payload);
       
       setIsModalOpen(false);
       setProjectData({ title: '', description: '', githubUrl: '', liveUrl: '', status: 'Completed', category: 'Fullstack' });
-      fetchData(); 
-      alert("Project added successfully!");
-    } catch (error) { 
-        alert("Server Error: Your backend doesn't support image uploads yet. Try adding without a file."); 
+      fetchData();
+    } catch (error) {
+      alert("Error: " + (error.response?.data?.message || "Check Backend Console"));
     } finally {
-        setIsSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
-  const statusData = useMemo(() => {
-    const counts = { 'To-Do': 0, 'In Progress': 0, 'Completed': 0 };
-    projects.forEach(p => { if(counts[p.status] !== undefined) counts[p.status]++; });
-    return Object.keys(counts).map(key => ({ name: key, value: counts[key] }));
-  }, [projects]);
-
-  const COLORS = ['#3b82f6', '#f59e0b', '#10b981'];
-
-  if (isInitialLoad) return (
-    <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center">
-      <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
-      <p className="text-blue-500 font-bold uppercase tracking-widest text-[10px]">Syncing Workspace</p>
-    </div>
-  );
+  if (loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center text-blue-500 font-bold">SYNCING...</div>;
 
   return (
-    <div className="min-h-screen bg-[#020617] flex text-slate-300 font-sans relative">
-      <aside className="w-64 border-r border-white/5 bg-[#020617] p-6 hidden lg:flex flex-col fixed inset-y-0">
-        <div className="flex items-center gap-3 mb-10 text-white font-black italic text-2xl uppercase">
-          <Code size={28} className="text-blue-600" /> DevSync
-        </div>
-        <nav className="flex-1 space-y-2">
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white font-bold"><Layout size={20}/> Overview</button>
-          <button onClick={() => navigate('/profile')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5"><User size={20}/> Profile</button>
-        </nav>
-        <button onClick={() => {localStorage.clear(); navigate('/login')}} className="flex items-center gap-3 p-4 text-slate-500 hover:text-red-500 flex items-center gap-2 transition-colors"><LogOut size={18} /> Logout</button>
-      </aside>
-
-      <main className="flex-1 lg:ml-64 p-4 md:p-10 w-full animate-in fade-in duration-700">
+    <div className="min-h-screen bg-[#020617] text-slate-300 flex">
+      <main className="flex-1 p-10">
         <header className="flex justify-between items-center mb-12">
-          <div>
-            <h2 className="text-4xl font-black text-white uppercase italic tracking-tighter">
-                Hi, {userData?.name ? userData.name.toUpperCase() : "DINESH"}!
-            </h2>
-            <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest mt-1">Total Projects: {projects.length}</p>
-          </div>
-          <button onClick={() => setIsModalOpen(true)} className="bg-white text-black font-black px-8 py-4 rounded-2xl flex items-center gap-2 active:scale-95 shadow-2xl transition-all hover:bg-blue-50">
+          <h2 className="text-4xl font-black text-white italic uppercase">Hi, {userData?.name?.split(' ')[0] || "Dinesh"}!</h2>
+          <button onClick={() => setIsModalOpen(true)} className="bg-white text-black font-black px-8 py-4 rounded-2xl flex items-center gap-2 shadow-2xl active:scale-95 transition-all">
             <Plus size={20}/> New Project
           </button>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {projects.length > 0 ? projects.map((p) => (
-            <div key={p._id} className="bg-white/[0.03] border border-white/5 rounded-[2.5rem] overflow-hidden group flex flex-col shadow-xl relative transition-all hover:scale-[1.02]">
-              <div className="h-48 bg-slate-950/40 flex items-center justify-center border-b border-white/5 overflow-hidden">
-                <ImageIcon size={48} className="text-slate-800" />
-              </div>
-              <div className="p-8 grow flex flex-col">
-                <span className="text-[9px] px-2 py-1 bg-blue-500/10 text-blue-500 rounded font-bold uppercase w-fit mb-4">{p.status}</span>
-                <h3 className="text-2xl font-bold text-white mb-2 tracking-tight group-hover:text-blue-400 transition-colors uppercase italic">{p.title}</h3>
-                <p className="text-slate-500 text-sm mb-6 line-clamp-2 leading-relaxed">{p.description}</p>
-                <div className="grid grid-cols-2 gap-4 mt-auto">
-                  <a href={p.githubUrl} target="_blank" rel="noreferrer" className="bg-white/5 text-center py-3 rounded-xl text-[10px] font-bold border border-white/5 flex items-center justify-center gap-2 transition-all hover:bg-white/10 active:scale-95"><Github size={14}/> Code</a>
-                  <a href={p.liveUrl} target="_blank" rel="noreferrer" className="bg-blue-600 text-white text-center py-3 rounded-xl text-[10px] font-bold shadow-lg flex items-center justify-center gap-2 transition-all hover:bg-blue-500 active:scale-95"><ExternalLink size={14}/> Demo</a>
-                </div>
+          {projects.map((p) => (
+            <div key={p._id} className="bg-white/[0.03] border border-white/5 rounded-[2.5rem] p-8 flex flex-col shadow-xl">
+              <span className="text-[9px] px-2 py-1 bg-blue-500/10 text-blue-500 rounded font-bold uppercase w-fit mb-4">{p.status}</span>
+              <h3 className="text-2xl font-bold text-white mb-2 italic uppercase">{p.title}</h3>
+              <p className="text-slate-500 text-sm mb-6 line-clamp-2">{p.description}</p>
+              <div className="grid grid-cols-2 gap-4 mt-auto">
+                <a href={p.githubUrl} target="_blank" rel="noreferrer" className="bg-white/5 text-center py-3 rounded-xl text-[10px] font-bold border border-white/5">CODE</a>
+                <a href={p.liveUrl} target="_blank" rel="noreferrer" className="bg-blue-600 text-white text-center py-3 rounded-xl text-[10px] font-bold shadow-lg">DEMO</a>
               </div>
             </div>
-          )) : (
-            <div className="col-span-full py-20 text-center border-2 border-dashed border-white/10 rounded-[3rem]">
-              <p className="text-slate-600 uppercase font-black italic tracking-widest text-sm font-bold">No Projects Linked to this Profile</p>
-            </div>
-          )}
+          ))}
         </div>
       </main>
 
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4">
-          <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-[3rem] p-10 shadow-2xl overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-300">
+          <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-[3rem] p-10 shadow-2xl">
             <div className="flex justify-between items-center mb-8 text-white">
               <h3 className="text-2xl font-black uppercase italic tracking-tighter">New Project</h3>
-              <button onClick={() => setIsModalOpen(false)} className="hover:rotate-90 transition-transform"><X size={32} /></button>
+              <button onClick={() => setIsModalOpen(false)}><X size={32} /></button>
             </div>
-            
             <form onSubmit={handleFormSubmit} className="space-y-4">
-              {/* BYPASS: Thumbnail section hidden to fix the 500 error */}
-              <input type="text" required placeholder="Project Title" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none focus:border-blue-500/50 transition-all" value={projectData.title} onChange={(e) => setProjectData({...projectData, title: e.target.value})} />
-              <textarea placeholder="Description" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none h-24 text-sm focus:border-blue-500/50 transition-all" value={projectData.description} onChange={(e) => setProjectData({...projectData, description: e.target.value})} />
-              
+              <input type="text" required placeholder="Title" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none" value={projectData.title} onChange={(e) => setProjectData({...projectData, title: e.target.value})} />
+              <textarea placeholder="Description" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none h-24 text-sm" value={projectData.description} onChange={(e) => setProjectData({...projectData, description: e.target.value})} />
               <div className="grid grid-cols-2 gap-4">
-                <input type="url" placeholder="GitHub Link" className="bg-slate-950 border border-white/5 text-white p-4 rounded-2xl text-xs outline-none focus:border-blue-500/50 transition-all" value={projectData.githubUrl} onChange={(e) => setProjectData({...projectData, githubUrl: e.target.value})} />
-                <input type="url" placeholder="Live Demo" className="bg-slate-950 border border-white/5 text-white p-4 rounded-2xl text-xs outline-none focus:border-blue-500/50 transition-all" value={projectData.liveUrl} onChange={(e) => setProjectData({...projectData, liveUrl: e.target.value})} />
+                <input type="url" placeholder="GitHub" className="bg-slate-950 border border-white/5 text-white p-4 rounded-2xl text-xs outline-none" value={projectData.githubUrl} onChange={(e) => setProjectData({...projectData, githubUrl: e.target.value})} />
+                <input type="url" placeholder="Demo" className="bg-slate-950 border border-white/5 text-white p-4 rounded-2xl text-xs outline-none" value={projectData.liveUrl} onChange={(e) => setProjectData({...projectData, liveUrl: e.target.value})} />
               </div>
-
-              <button 
-                type="submit" 
-                disabled={isSubmitting} 
-                className="w-full bg-white text-black font-black py-4 rounded-2xl shadow-xl mt-4 uppercase text-xs flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 transition-all"
-              >
-                {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Syncing...</> : "Create Project"}
+              <button type="submit" disabled={isSubmitting} className="w-full bg-white text-black font-black py-4 rounded-2xl uppercase text-xs flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50">
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Project"}
               </button>
             </form>
           </div>
