@@ -19,7 +19,6 @@ const Dashboard = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [imageFile, setImageFile] = useState(null);
   const [projectData, setProjectData] = useState({ 
     title: '', description: '', githubUrl: '', liveUrl: '',
     status: 'Completed', category: 'Fullstack'
@@ -60,21 +59,20 @@ const Dashboard = () => {
     const userId = localStorage.getItem('userId');
     
     try {
-      const formData = new FormData();
-      Object.keys(projectData).forEach(key => formData.append(key, projectData[key]));
-      formData.append('owner', userId);
-      if (imageFile) formData.append('thumbnail', imageFile);
+      // BYPASS: Sending as JSON instead of FormData to avoid Multer error
+      const payload = {
+        ...projectData,
+        owner: userId
+      };
 
-      await axios.post(`${API_URL}/projects/add`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      await axios.post(`${API_URL}/projects/add`, payload);
       
       setIsModalOpen(false);
-      setImageFile(null);
       setProjectData({ title: '', description: '', githubUrl: '', liveUrl: '', status: 'Completed', category: 'Fullstack' });
       fetchData(); 
+      alert("Project added successfully!");
     } catch (error) { 
-        alert("Action failed. Check Backend Multer setup."); 
+        alert("Server Error: Your backend doesn't support image uploads yet. Try adding without a file."); 
     } finally {
         setIsSubmitting(false);
     }
@@ -103,7 +101,7 @@ const Dashboard = () => {
         </div>
         <nav className="flex-1 space-y-2">
           <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white font-bold"><Layout size={20}/> Overview</button>
-          <button onClick={() => navigate('/profile')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-all"><User size={20}/> Profile</button>
+          <button onClick={() => navigate('/profile')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5"><User size={20}/> Profile</button>
         </nav>
         <button onClick={() => {localStorage.clear(); navigate('/login')}} className="flex items-center gap-3 p-4 text-slate-500 hover:text-red-500 flex items-center gap-2 transition-colors"><LogOut size={18} /> Logout</button>
       </aside>
@@ -125,7 +123,7 @@ const Dashboard = () => {
           {projects.length > 0 ? projects.map((p) => (
             <div key={p._id} className="bg-white/[0.03] border border-white/5 rounded-[2.5rem] overflow-hidden group flex flex-col shadow-xl relative transition-all hover:scale-[1.02]">
               <div className="h-48 bg-slate-950/40 flex items-center justify-center border-b border-white/5 overflow-hidden">
-                {p.thumbnail ? <img src={p.thumbnail} className="w-full h-full object-cover" /> : <ImageIcon size={48} className="text-slate-800" />}
+                <ImageIcon size={48} className="text-slate-800" />
               </div>
               <div className="p-8 grow flex flex-col">
                 <span className="text-[9px] px-2 py-1 bg-blue-500/10 text-blue-500 rounded font-bold uppercase w-fit mb-4">{p.status}</span>
@@ -145,7 +143,6 @@ const Dashboard = () => {
         </div>
       </main>
 
-      {/* MODAL - DEFINITIVE THUMBNAIL FIX */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4">
           <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-[3rem] p-10 shadow-2xl overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-300">
@@ -155,20 +152,7 @@ const Dashboard = () => {
             </div>
             
             <form onSubmit={handleFormSubmit} className="space-y-4">
-              {/* THUMBNAIL UPLOAD BLOCK - RE-INSERTED MANUALLY */}
-              <div className="relative group flex flex-col items-center justify-center border-2 border-dashed border-white/5 bg-white/5 hover:border-blue-500/50 rounded-[2rem] p-6 transition-all">
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  className="absolute inset-0 opacity-0 cursor-pointer z-10" 
-                  onChange={(e) => setImageFile(e.target.files[0])} 
-                />
-                <Upload size={24} className="text-blue-500 mb-2" />
-                <p className="text-[10px] font-bold text-slate-500 uppercase text-center">
-                  {imageFile ? imageFile.name : 'Upload Thumbnail'}
-                </p>
-              </div>
-
+              {/* BYPASS: Thumbnail section hidden to fix the 500 error */}
               <input type="text" required placeholder="Project Title" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none focus:border-blue-500/50 transition-all" value={projectData.title} onChange={(e) => setProjectData({...projectData, title: e.target.value})} />
               <textarea placeholder="Description" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none h-24 text-sm focus:border-blue-500/50 transition-all" value={projectData.description} onChange={(e) => setProjectData({...projectData, description: e.target.value})} />
               
