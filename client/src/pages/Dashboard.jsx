@@ -11,7 +11,6 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -34,24 +33,29 @@ const Dashboard = () => {
     if (!userId || !token) return navigate('/login');
 
     try {
+      // Adding a timestamp to bypass browser cache
+      const timestamp = new Date().getTime();
       const [userRes, projectRes] = await Promise.all([
-        axios.get(`${API_URL}/auth/user/${userId}`),
-        axios.get(`${API_URL}/projects/${userId}`)
+        axios.get(`${API_URL}/auth/user/${userId}?v=${timestamp}`),
+        axios.get(`${API_URL}/projects/${userId}?v=${timestamp}`)
       ]);
+
       if (userRes.data) setUserData(userRes.data);
       
       const data = projectRes.data;
-      setProjects(Array.isArray(data) ? data : (data.projects || []));
+      const projectList = Array.isArray(data) ? data : (data.projects || []);
+      setProjects(projectList);
+      
+      console.log("Verified Data Loaded:", projectList.length, "projects found.");
     } catch (error) {
-      console.error("Fetch Error:", error);
+      console.error("Critical Sync Error:", error);
     } finally {
-      setTimeout(() => setIsInitialLoad(false), 800);
+      setIsInitialLoad(false);
     }
   };
 
   useEffect(() => { fetchData(); }, [location.key]);
 
-  // FIXED: Edit Button Logic
   const handleEditClick = (project) => {
     setEditingId(project._id);
     setProjectData({
@@ -71,10 +75,8 @@ const Dashboard = () => {
     const userId = localStorage.getItem('userId');
     try {
       if (editingId) {
-        // Update Logic
         await axios.put(`${API_URL}/projects/update/${editingId}`, projectData);
       } else {
-        // Create Logic
         const formData = new FormData();
         Object.keys(projectData).forEach(key => formData.append(key, projectData[key]));
         formData.append('ownerId', userId);
@@ -90,7 +92,7 @@ const Dashboard = () => {
       setProjectData({ title: '', description: '', githubUrl: '', liveUrl: '', status: 'To-Do', category: 'Fullstack' });
       fetchData(); 
     } catch (error) { 
-        alert("Action failed. Check Backend."); 
+        alert("Action failed. Syncing stopped."); 
     } finally {
         setIsSubmitting(false);
     }
@@ -114,7 +116,7 @@ const Dashboard = () => {
     return (
       <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center">
         <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
-        <p className="text-blue-500 font-bold uppercase tracking-[0.3em] text-[10px] animate-pulse">Syncing Workspace</p>
+        <p className="text-blue-500 font-bold uppercase tracking-[0.3em] text-[10px]">Connecting to Database...</p>
       </div>
     );
   }
@@ -129,8 +131,8 @@ const Dashboard = () => {
           DevSync
         </div>
         <nav className="flex-1 space-y-2">
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg shadow-blue-600/20 active:scale-95 transition-all"><Layout size={20}/> Overview</button>
-          <button onClick={() => navigate('/profile')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 active:scale-95 transition-all"><User size={20}/> My Profile</button>
+          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white font-bold"><Layout size={20}/> Overview</button>
+          <button onClick={() => navigate('/profile')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5"><User size={20}/> My Profile</button>
         </nav>
         <button onClick={() => { localStorage.clear(); navigate('/login'); }} className="flex items-center gap-3 px-4 py-3 text-slate-500 mt-auto border-t border-white/5 pt-4 transition-colors hover:text-red-500"><LogOut size={18} /> Logout</button>
       </aside>
@@ -151,7 +153,6 @@ const Dashboard = () => {
           </button>
         </header>
 
-        {/* ANALYTICS SECTION */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
           <div className="bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 h-[350px]">
             <h4 className="text-white font-bold mb-6 text-xs uppercase tracking-widest flex items-center gap-2"><CheckCircle2 size={18} className="text-blue-500" /> Status</h4>
@@ -178,21 +179,12 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* PROJECT GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {projects.length > 0 ? projects.map((project, idx) => (
             <div key={project._id} 
                  style={{ animationDelay: `${idx * 100}ms` }}
-                 className="bg-white/[0.03] border border-white/5 rounded-[2.5rem] overflow-hidden group flex flex-col shadow-xl relative transition-all duration-500 hover:scale-[1.02] hover:border-blue-500/30 animate-in fade-in zoom-in-95">
-              
-              {/* EDIT BUTTON RESTORED AND WORKING */}
-              <button 
-                onClick={() => handleEditClick(project)} 
-                className="absolute top-4 right-4 z-10 p-3 bg-blue-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-xl hover:scale-110 active:scale-95"
-              >
-                <Edit3 size={16} />
-              </button>
-
+                 className="bg-white/[0.03] border border-white/5 rounded-[2.5rem] overflow-hidden group flex flex-col shadow-xl relative transition-all duration-500 hover:scale-[1.02] hover:border-blue-500/30">
+              <button onClick={() => handleEditClick(project)} className="absolute top-4 right-4 z-10 p-3 bg-blue-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-xl hover:scale-110 active:scale-95"><Edit3 size={16} /></button>
               <div className="h-48 bg-slate-950/40 flex items-center justify-center border-b border-white/5 overflow-hidden">
                 {project.thumbnail ? <img src={project.thumbnail} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" /> : <ImageIcon size={48} className="text-slate-800" />}
               </div>
@@ -203,8 +195,8 @@ const Dashboard = () => {
                 <h3 className="text-2xl font-bold text-white mb-2 tracking-tight group-hover:text-blue-400 transition-colors uppercase italic">{project.title}</h3>
                 <p className="text-slate-500 text-sm mb-6 line-clamp-2 leading-relaxed">{project.description}</p>
                 <div className="grid grid-cols-2 gap-4 mt-auto">
-                  <a href={project.githubUrl} target="_blank" rel="noreferrer" className="bg-white/5 text-center py-3 rounded-xl text-[11px] font-bold border border-white/5 transition-all hover:bg-white/10 active:scale-95 flex items-center justify-center gap-2"><Github size={14}/> Code</a>
-                  <a href={project.liveUrl} target="_blank" rel="noreferrer" className="bg-blue-600 text-white text-center py-3 rounded-xl text-[11px] font-bold shadow-lg hover:bg-blue-500 transition-all active:scale-95 flex items-center justify-center gap-2"><ExternalLink size={14}/> Demo</a>
+                  <a href={project.githubUrl} target="_blank" rel="noreferrer" className="bg-white/5 text-center py-3 rounded-xl text-[11px] font-bold border border-white/5 hover:bg-white/10 active:scale-95 flex items-center justify-center gap-2"><Github size={14}/> Code</a>
+                  <a href={project.liveUrl} target="_blank" rel="noreferrer" className="bg-blue-600 text-white text-center py-3 rounded-xl text-[11px] font-bold shadow-lg hover:bg-blue-500 active:scale-95 flex items-center justify-center gap-2"><ExternalLink size={14}/> Demo</a>
                 </div>
               </div>
             </div>
@@ -216,18 +208,12 @@ const Dashboard = () => {
         </div>
       </main>
 
-      {/* MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4">
-          <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-[3rem] p-8 md:p-10 shadow-2xl overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-300">
+          <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-[3rem] p-10 shadow-2xl overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-center mb-8 text-white">
               <h3 className="text-2xl font-black uppercase italic tracking-tighter">{editingId ? "Update Project" : "New Project"}</h3>
-              <button 
-                onClick={() => { setIsModalOpen(false); setEditingId(null); }} 
-                className="text-slate-500 hover:text-white transition-transform hover:rotate-90"
-              >
-                <X size={32} />
-              </button>
+              <button onClick={() => { setIsModalOpen(false); setEditingId(null); }} className="text-slate-500 hover:text-white transition-transform hover:rotate-90"><X size={32} /></button>
             </div>
             
             <form onSubmit={handleFormSubmit} className="space-y-4">
@@ -239,30 +225,25 @@ const Dashboard = () => {
                 </div>
               )}
 
-              <input type="text" required placeholder="Project Title" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none focus:border-blue-500/50 transition-all" value={projectData.title} onChange={(e) => setProjectData({...projectData, title: e.target.value})} />
-              <textarea placeholder="Description" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none h-24 text-sm focus:border-blue-500/50 transition-all" value={projectData.description} onChange={(e) => setProjectData({...projectData, description: e.target.value})} />
+              <input type="text" required placeholder="Project Title" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none focus:border-blue-500/50" value={projectData.title} onChange={(e) => setProjectData({...projectData, title: e.target.value})} />
+              <textarea placeholder="Description" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none h-24 text-sm" value={projectData.description} onChange={(e) => setProjectData({...projectData, description: e.target.value})} />
               
               <div className="grid grid-cols-2 gap-4">
                 <select className="bg-slate-950 border border-white/5 text-slate-400 p-4 rounded-2xl text-xs font-bold" value={projectData.status} onChange={(e) => setProjectData({...projectData, status: e.target.value})}>
-                    <option value="To-Do">To-Do</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Completed">Completed</option>
+                    <option value="To-Do">To-Do</option><option value="In Progress">In Progress</option><option value="Completed">Completed</option>
                 </select>
                 <select className="bg-slate-950 border border-white/5 text-slate-400 p-4 rounded-2xl text-xs font-bold" value={projectData.category} onChange={(e) => setProjectData({...projectData, category: e.target.value})}>
-                    <option value="Fullstack">Fullstack</option>
-                    <option value="Frontend">Frontend</option>
-                    <option value="Backend">Backend</option>
+                    <option value="Fullstack">Fullstack</option><option value="Frontend">Frontend</option><option value="Backend">Backend</option>
                 </select>
               </div>
 
-              {/* RESTORED: GitHub and Live Link inputs */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <input type="url" placeholder="GitHub Link" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none focus:border-blue-500/50 transition-all text-xs" value={projectData.githubUrl} onChange={(e) => setProjectData({...projectData, githubUrl: e.target.value})} />
-                <input type="url" placeholder="Live Demo Link" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none focus:border-blue-500/50 transition-all text-xs" value={projectData.liveUrl} onChange={(e) => setProjectData({...projectData, liveUrl: e.target.value})} />
+                <input type="url" placeholder="GitHub Link" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none text-xs" value={projectData.githubUrl} onChange={(e) => setProjectData({...projectData, githubUrl: e.target.value})} />
+                <input type="url" placeholder="Live Demo Link" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none text-xs" value={projectData.liveUrl} onChange={(e) => setProjectData({...projectData, liveUrl: e.target.value})} />
               </div>
 
-              <button type="submit" disabled={isSubmitting} className="w-full bg-white text-slate-950 font-black py-4 rounded-2xl shadow-xl mt-4 uppercase text-xs flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70">
-                {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Syncing...</> : (editingId ? "Save Changes" : "Create Project")}
+              <button type="submit" disabled={isSubmitting} className="w-full bg-white text-slate-950 font-black py-4 rounded-2xl shadow-xl mt-4 uppercase text-xs flex items-center justify-center gap-2 active:scale-95">
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingId ? "Save Changes" : "Create Project")}
               </button>
             </form>
           </div>
