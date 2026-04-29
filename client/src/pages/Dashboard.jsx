@@ -3,52 +3,50 @@ import axios from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Layout, Code, User, LogOut, Plus, X, Upload, Menu, Edit3,
-  CheckCircle2, BarChart3, Image as ImageIcon, Github, ExternalLink, Loader2
+  CheckCircle2, BarChart3, Image as ImageIcon, Github, ExternalLink
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  
-  // States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
+  const [editingId, setEditingId] = useState(null); // Track if we are editing
   const [projects, setProjects] = useState([]);
   const [userData, setUserData] = useState(null);
-  
-  // Loading States
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const [loading, setLoading] = useState(true);
   const [imageFile, setImageFile] = useState(null);
+
   const [projectData, setProjectData] = useState({ 
     title: '', description: '', githubUrl: '', liveUrl: '',
-    status: 'To-Do', category: 'Fullstack'
+    status: 'To-Do', priority: 'Medium', tags: '', category: 'Fullstack'
   });
 
   const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
+  const userId = localStorage.getItem('userId');
+  const token = localStorage.getItem('token');
 
   const fetchData = async () => {
-    const userId = localStorage.getItem('userId');
-    if (!userId) return navigate('/login');
+    if (!userId) return;
     try {
-      const [userRes, projectRes] = await Promise.all([
-        axios.get(`${API_URL}/auth/user/${userId}`),
-        axios.get(`${API_URL}/projects/${userId}`)
-      ]);
+      const userRes = await axios.get(`${API_URL}/auth/user/${userId}`);
       setUserData(userRes.data);
+      const projectRes = await axios.get(`${API_URL}/projects/${userId}`);
       setProjects(projectRes.data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsInitialLoad(false);
+      setLoading(false);
+    } catch (error) { 
+      console.error(error); 
+      setLoading(false);
     }
   };
 
-  useEffect(() => { fetchData(); }, [location.key]);
+  useEffect(() => { 
+    if (!userId || !token) navigate('/login'); 
+    else fetchData(); 
+  }, [userId, token, location.key]);
 
+  // Logic to pre-fill modal for editing
   const handleEditClick = (project) => {
     setEditingId(project._id);
     setProjectData({
@@ -64,13 +62,13 @@ const Dashboard = () => {
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true); // START BUTTON LOADING
-    const userId = localStorage.getItem('userId');
-    
     try {
       if (editingId) {
+        // UPDATE PROJECT
         await axios.put(`${API_URL}/projects/update/${editingId}`, projectData);
+        alert("Project updated!");
       } else {
+        // CREATE PROJECT
         const formData = new FormData();
         Object.keys(projectData).forEach(key => formData.append(key, projectData[key]));
         formData.append('ownerId', userId);
@@ -79,17 +77,17 @@ const Dashboard = () => {
         await axios.post(`${API_URL}/projects/add`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
+        alert("Project added!");
       }
 
       setIsModalOpen(false);
       setEditingId(null);
       setImageFile(null);
-      setProjectData({ title: '', description: '', githubUrl: '', liveUrl: '', status: 'To-Do', category: 'Fullstack' });
-      await fetchData(); // Refresh data
+      setProjectData({ title: '', description: '', githubUrl: '', liveUrl: '', status: 'To-Do', priority: 'Medium', tags: '', category: 'Fullstack' });
+      fetchData(); 
     } catch (error) { 
-        alert("Action failed. Ensure backend is running."); 
-    } finally {
-        setIsSubmitting(false); // STOP BUTTON LOADING
+        console.error(error);
+        alert("Action failed. Ensure backend routes are ready."); 
     }
   };
 
@@ -107,20 +105,14 @@ const Dashboard = () => {
 
   const COLORS = ['#3b82f6', '#f59e0b', '#10b981'];
 
-  // 1. IMPROVED INITIAL LOADING ICON
-  if (isInitialLoad) {
-    return (
-      <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center gap-4">
-        <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-        <p className="text-blue-500 font-bold uppercase tracking-[0.3em] text-xs animate-pulse">Syncing Workspace</p>
-      </div>
-    );
-  }
+  if (loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center text-white italic font-black uppercase">Syncing...</div>;
 
   return (
     <div className="min-h-screen bg-[#020617] flex text-slate-300 font-sans relative">
+      {/* MOBILE OVERLAY */}
       {isSidebarOpen && <div className="fixed inset-0 bg-black/60 z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)} />}
 
+      {/* SIDEBAR */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-white/5 bg-[#020617]/95 backdrop-blur-xl p-6 flex flex-col transition-transform duration-300 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex items-center justify-between mb-10 text-white px-2">
           <div className="flex items-center gap-3">
@@ -130,72 +122,54 @@ const Dashboard = () => {
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-500"><X size={24}/></button>
         </div>
         <nav className="flex-1 space-y-2">
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg shadow-blue-600/20"><Layout size={20}/> Overview</button>
-          <button onClick={() => navigate('/profile')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 transition-all"><User size={20}/> My Profile</button>
+          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white font-bold"><Layout size={20}/> Overview</button>
+          <button onClick={() => navigate('/profile')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 hover:text-white transition-all font-medium"><User size={20}/> My Profile</button>
         </nav>
-        <button onClick={() => { localStorage.clear(); navigate('/login'); }} className="flex items-center gap-3 px-4 py-3 text-slate-500 mt-auto border-t border-white/5 pt-4 transition-colors hover:text-red-500"><LogOut size={18} /> Logout</button>
+        <button onClick={() => { localStorage.clear(); navigate('/login'); }} className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-red-400 mt-auto border-t border-white/5 pt-4 font-bold text-sm transition-colors"><LogOut size={18} /> Logout</button>
       </aside>
 
       <main className="flex-1 lg:ml-64 p-4 md:p-10 w-full overflow-x-hidden">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div className="flex items-center gap-4">
-            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-3 bg-white/5 rounded-xl text-white"><Menu size={24} /></button>
+            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-3 bg-white/5 rounded-xl border border-white/10 text-white"><Menu size={24} /></button>
             <div>
-              <h2 className="text-3xl md:text-4xl font-black text-white uppercase italic tracking-tighter">
+              <h2 className="text-3xl md:text-4xl font-black text-white uppercase tracking-tighter italic">
                   {userData ? `Hi, ${userData.name.split(' ')[0]}!` : "Dashboard"}
               </h2>
-              <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest mt-1">Developer Workspace</p>
+              <p className="text-slate-500 font-medium uppercase text-[10px]">Developer Workspace</p>
             </div>
           </div>
-          <button onClick={() => { setEditingId(null); setIsModalOpen(true); }} className="w-full md:w-auto bg-white text-slate-950 font-black px-8 py-4 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-2xl hover:bg-blue-50 transition-all active:scale-95">
+          <button onClick={() => { setEditingId(null); setIsModalOpen(true); }} className="w-full md:w-auto bg-white text-slate-950 font-black px-8 py-4 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-2xl">
             <Plus size={20}/> New Project
           </button>
         </header>
 
-        {/* ANALYTICS SECTION */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          <div className="bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 h-[350px]">
-            <h4 className="text-white font-bold mb-6 text-xs uppercase tracking-widest flex items-center gap-2"><CheckCircle2 size={18} className="text-blue-500" /> Project Status</h4>
-            <ResponsiveContainer width="100%" height="80%">
-              <PieChart>
-                <Pie data={statusData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                  {statusData.map((entry, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
-                </Pie>
-                <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '10px' }} />
-                <Legend verticalAlign="bottom" height={36}/>
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 h-[350px]">
-            <h4 className="text-white font-bold mb-6 text-sm uppercase tracking-widest flex items-center gap-2"><BarChart3 size={18} className="text-purple-500" /> Stack Analysis</h4>
-            <ResponsiveContainer width="100%" height="80%">
-              <BarChart data={categoryData}>
-                <XAxis dataKey="name" tick={{fill: '#64748b', fontSize: 10}} />
-                <YAxis hide />
-                <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '10px' }} />
-                <Bar dataKey="count" fill="#8b5cf6" radius={[10, 10, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
         {/* PROJECT GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           {projects.map((project) => (
-            <div key={project._id} className="bg-white/[0.03] border border-white/5 rounded-[2.5rem] overflow-hidden group flex flex-col shadow-xl relative transition-all duration-300 hover:border-blue-500/30">
-              <button onClick={() => handleEditClick(project)} className="absolute top-4 right-4 z-10 p-3 bg-blue-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-xl hover:scale-110 active:scale-95"><Edit3 size={16} /></button>
+            <div key={project._id} className="bg-white/[0.03] border border-white/5 rounded-[2.5rem] overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:border-blue-500/40 group flex flex-col shadow-xl relative">
+              
+              {/* EDIT BUTTON (Visible on hover) */}
+              <button 
+                onClick={() => handleEditClick(project)}
+                className="absolute top-4 right-4 z-10 p-3 bg-blue-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-xl"
+              >
+                <Edit3 size={16} />
+              </button>
+
               <div className="h-48 bg-slate-950/40 flex items-center justify-center border-b border-white/5 overflow-hidden">
                 {project.thumbnail ? <img src={project.thumbnail} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" /> : <ImageIcon size={48} className="text-slate-800" />}
               </div>
               <div className="p-8 grow flex flex-col">
                 <div className="flex gap-2 mb-4">
                   <span className="text-[9px] px-2 py-1 bg-amber-500/10 text-amber-500 rounded font-bold uppercase tracking-widest">{project.status}</span>
+                  <span className="text-[9px] px-2 py-1 bg-purple-500/10 text-purple-500 rounded font-bold uppercase tracking-widest">{project.category}</span>
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">{project.title}</h3>
-                <p className="text-slate-500 text-sm mb-6 line-clamp-2 leading-relaxed">{project.description}</p>
+                <h3 className="text-2xl font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">{project.title}</h3>
+                <p className="text-slate-500 text-sm mb-6 grow line-clamp-2 leading-relaxed">{project.description}</p>
                 <div className="grid grid-cols-2 gap-4 mt-auto">
-                  <a href={project.githubUrl} target="_blank" rel="noreferrer" className="bg-white/5 text-center py-3 rounded-xl text-[11px] font-bold border border-white/5 transition-colors hover:bg-white/10">Code</a>
-                  <a href={project.liveUrl} target="_blank" rel="noreferrer" className="bg-blue-600 text-white text-center py-3 rounded-xl text-[11px] font-bold shadow-lg hover:bg-blue-500 transition-colors">Demo</a>
+                  <a href={project.githubUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 py-3 bg-white/5 text-slate-300 rounded-[1.2rem] text-[11px] font-bold border border-white/5 text-center"><Github size={14}/> Code</a>
+                  <a href={project.liveUrl} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 py-3 bg-blue-600 text-white rounded-[1.2rem] text-[11px] font-bold shadow-lg shadow-blue-900/20 text-center"><ExternalLink size={14}/> Demo</a>
                 </div>
               </div>
             </div>
@@ -203,10 +177,10 @@ const Dashboard = () => {
         </div>
       </main>
 
-      {/* MODAL */}
+      {/* DYNAMIC MODAL (For both Add and Edit) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4">
-          <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-[3rem] p-8 md:p-10 shadow-2xl overflow-y-auto max-h-[90vh]">
+          <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-[3rem] p-10 shadow-2xl overflow-y-auto max-h-[90vh]">
             <div className="flex justify-between items-center mb-8 text-white">
               <h3 className="text-2xl font-black uppercase italic tracking-tighter">{editingId ? "Update Project" : "New Project"}</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-white transition-transform hover:rotate-90"><X size={32} /></button>
@@ -214,16 +188,16 @@ const Dashboard = () => {
             
             <form onSubmit={handleFormSubmit} className="space-y-4">
               {!editingId && (
-                <div className="relative group flex flex-col items-center justify-center border-2 border-dashed border-white/5 bg-white/5 hover:border-blue-500/50 rounded-[2rem] p-6 transition-all">
+                <div className="relative group flex flex-col items-center justify-center border-2 border-dashed border-white/5 bg-white/5 rounded-[2rem] p-6 transition-all hover:border-blue-500/50">
                   <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={(e) => setImageFile(e.target.files[0])} />
                   <Upload size={24} className="text-blue-500 mb-2" />
-                  <p className="text-[10px] font-bold text-slate-500 uppercase text-center">{imageFile ? imageFile.name : 'Upload Thumbnail'}</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">{imageFile ? imageFile.name : 'Upload Thumbnail'}</p>
                 </div>
               )}
 
-              <input type="text" required placeholder="Project Title" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none focus:border-blue-500/50 transition-all" value={projectData.title} onChange={(e) => setProjectData({...projectData, title: e.target.value})} />
-              <textarea placeholder="Description" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none h-24 text-sm focus:border-blue-500/50 transition-all" value={projectData.description} onChange={(e) => setProjectData({...projectData, description: e.target.value})} />
-              
+              <input type="text" required placeholder="Project Title" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none focus:border-blue-500/50" value={projectData.title} onChange={(e) => setProjectData({...projectData, title: e.target.value})} />
+              <textarea placeholder="Description" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none h-24 text-sm" value={projectData.description} onChange={(e) => setProjectData({...projectData, description: e.target.value})} />
+
               <div className="grid grid-cols-2 gap-4">
                 <select className="bg-slate-950 border border-white/5 text-slate-400 p-4 rounded-2xl text-xs font-bold" value={projectData.status} onChange={(e) => setProjectData({...projectData, status: e.target.value})}>
                     <option value="To-Do">To-Do</option>
@@ -237,17 +211,13 @@ const Dashboard = () => {
                 </select>
               </div>
 
-              {/* 2. BUTTON LOADING STATE */}
-              <button 
-                type="submit" 
-                disabled={isSubmitting}
-                className="w-full bg-white text-slate-950 font-black py-4 rounded-2xl shadow-xl mt-4 uppercase text-xs flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
-                ) : (
-                  editingId ? "Save Changes" : "Create Project"
-                )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <input type="url" placeholder="GitHub Link" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none text-xs" value={projectData.githubUrl} onChange={(e) => setProjectData({...projectData, githubUrl: e.target.value})} />
+                <input type="url" placeholder="Live Demo" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none text-xs" value={projectData.liveUrl} onChange={(e) => setProjectData({...projectData, liveUrl: e.target.value})} />
+              </div>
+
+              <button type="submit" className="w-full bg-white text-slate-950 font-black py-4 rounded-2xl shadow-xl hover:bg-blue-50 transition-all mt-4 uppercase text-xs tracking-widest">
+                {editingId ? "Save Changes" : "Create Project"}
               </button>
             </form>
           </div>
