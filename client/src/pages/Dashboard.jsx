@@ -30,24 +30,34 @@ const Dashboard = () => {
   const fetchData = async () => {
     const userId = localStorage.getItem('userId');
     const token = localStorage.getItem('token');
+
     if (!userId || !token) return navigate('/login');
 
     try {
+      // Parallel Request: Get User and Projects
       const [userRes, projectRes] = await Promise.all([
         axios.get(`${API_URL}/auth/user/${userId}`),
         axios.get(`${API_URL}/projects/${userId}`)
       ]);
-      if (userRes.data) setUserData(userRes.data);
-      const data = projectRes.data;
-      setProjects(Array.isArray(data) ? data : (data.projects || []));
+
+      if (userRes.data) {
+        setUserData(userRes.data);
+      }
+      
+      // MongoDB se data fetch karke state mein dalna
+      const projectList = Array.isArray(projectRes.data) ? projectRes.data : (projectRes.data.projects || []);
+      setProjects(projectList);
+
     } catch (error) {
-      console.error("Fetch Error:", error);
+      console.error("Dashboard Sync Error:", error);
     } finally {
       setTimeout(() => setIsInitialLoad(false), 800);
     }
   };
 
-  useEffect(() => { fetchData(); }, [location.key]);
+  useEffect(() => { 
+    fetchData(); 
+  }, [location.key]);
 
   const handleEditClick = (project) => {
     setEditingId(project._id);
@@ -66,6 +76,7 @@ const Dashboard = () => {
     e.preventDefault();
     setIsSubmitting(true);
     const userId = localStorage.getItem('userId');
+    
     try {
       if (editingId) {
         await axios.put(`${API_URL}/projects/update/${editingId}`, projectData);
@@ -85,7 +96,7 @@ const Dashboard = () => {
       setProjectData({ title: '', description: '', githubUrl: '', liveUrl: '', status: 'To-Do', category: 'Fullstack' });
       fetchData(); 
     } catch (error) { 
-        alert("Action failed. Check Backend."); 
+        alert("Operation failed. check backend."); 
     } finally {
         setIsSubmitting(false);
     }
@@ -107,9 +118,9 @@ const Dashboard = () => {
 
   if (isInitialLoad) {
     return (
-      <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center">
-        <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
-        <p className="text-blue-500 font-bold uppercase tracking-[0.3em] text-[10px] animate-pulse">Syncing Workspace</p>
+      <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center gap-6">
+        <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+        <p className="text-blue-500 font-bold uppercase tracking-[0.4em] text-[10px] animate-pulse">Syncing Environment</p>
       </div>
     );
   }
@@ -118,42 +129,42 @@ const Dashboard = () => {
     <div className="min-h-screen bg-[#020617] flex text-slate-300 font-sans relative">
       {isSidebarOpen && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)} />}
 
-      <aside className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-white/5 bg-[#020617]/95 p-6 flex flex-col transition-transform duration-300 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-white/5 bg-[#020617]/95 backdrop-blur-xl p-6 flex flex-col transition-transform duration-300 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex items-center gap-3 mb-10 text-white font-black text-2xl italic uppercase">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg"><Code size={24} /></div>
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20"><Code size={24} /></div>
           DevSync
         </div>
         <nav className="flex-1 space-y-2">
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg shadow-blue-600/20 active:scale-95 transition-all"><Layout size={20}/> Overview</button>
+          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg shadow-blue-600/30 transition-transform active:scale-95"><Layout size={20}/> Overview</button>
           <button onClick={() => navigate('/profile')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 active:scale-95 transition-all"><User size={20}/> My Profile</button>
         </nav>
-        <button onClick={() => { localStorage.clear(); navigate('/login'); }} className="flex items-center gap-3 px-4 py-3 text-slate-500 mt-auto border-t border-white/5 pt-4 transition-colors hover:text-red-500"><LogOut size={18} /> Logout</button>
+        <button onClick={() => { localStorage.clear(); navigate('/login'); }} className="flex items-center gap-3 px-4 py-3 text-slate-500 mt-auto border-t border-white/5 pt-4 hover:text-red-500 transition-colors"><LogOut size={18} /> Logout</button>
       </aside>
 
-      <main className="flex-1 lg:ml-64 p-4 md:p-10 w-full animate-in fade-in duration-700">
+      <main className="flex-1 lg:ml-64 p-4 md:p-10 w-full animate-in fade-in duration-1000">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div className="flex items-center gap-4">
-            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-3 bg-white/5 rounded-xl text-white"><Menu size={24} /></button>
+            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-3 bg-white/5 rounded-xl text-white active:scale-90 transition-transform"><Menu size={24} /></button>
             <div>
-              {/* RESTORED: Dynamic User Name Greeting */}
+              {/* RESTORED: Dynamic Name Greeting */}
               <h2 className="text-4xl font-black text-white uppercase italic tracking-tighter">
                   {userData ? `Hi, ${userData.name.split(' ')[0]}!` : "Dashboard"}
               </h2>
-              <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em] mt-1">Developer Workspace</p>
+              <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em] mt-1 italic">Developer Workspace</p>
             </div>
           </div>
-          <button onClick={() => { setEditingId(null); setIsModalOpen(true); }} className="w-full md:w-auto bg-white text-slate-950 font-black px-8 py-4 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-2xl active:scale-95">
+          <button onClick={() => { setEditingId(null); setIsModalOpen(true); }} className="w-full md:w-auto bg-white text-slate-950 font-black px-8 py-4 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-2xl hover:bg-blue-50 transition-all active:scale-95">
             <Plus size={20}/> New Project
           </button>
         </header>
 
         {/* ANALYTICS SECTION */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          <div className="bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 h-[350px]">
+          <div className="bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 h-[350px] transition-all hover:bg-white/[0.05]">
             <h4 className="text-white font-bold mb-6 text-xs uppercase tracking-widest flex items-center gap-2"><CheckCircle2 size={18} className="text-blue-500" /> Status</h4>
             <ResponsiveContainer width="100%" height="80%">
               <PieChart>
-                <Pie data={statusData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                <Pie data={statusData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" animationDuration={1500}>
                   {statusData.map((entry, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
                 </Pie>
                 <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '15px' }} />
@@ -161,14 +172,14 @@ const Dashboard = () => {
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 h-[350px]">
-            <h4 className="text-white font-bold mb-6 text-sm uppercase tracking-widest flex items-center gap-2"><BarChart3 size={18} className="text-purple-500" /> Stack Analysis</h4>
+          <div className="bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 h-[350px] transition-all hover:bg-white/[0.05]">
+            <h4 className="text-white font-bold mb-6 text-sm uppercase tracking-widest flex items-center gap-2"><BarChart3 size={18} className="text-purple-500" /> Tech Analysis</h4>
             <ResponsiveContainer width="100%" height="80%">
               <BarChart data={categoryData}>
                 <XAxis dataKey="name" tick={{fill: '#64748b', fontSize: 10}} />
                 <YAxis hide />
                 <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '15px' }} />
-                <Bar dataKey="count" fill="#8b5cf6" radius={[10, 10, 0, 0]} />
+                <Bar dataKey="count" fill="#8b5cf6" radius={[10, 10, 0, 0]} animationDuration={1500} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -187,18 +198,20 @@ const Dashboard = () => {
               <div className="p-8 grow flex flex-col">
                 <div className="flex gap-2 mb-4">
                   <span className="text-[9px] px-2 py-1 bg-amber-500/10 text-amber-500 rounded font-bold uppercase tracking-widest">{project.status}</span>
+                  <span className="text-[9px] px-2 py-1 bg-blue-500/10 text-blue-500 rounded font-bold uppercase tracking-widest">{project.category}</span>
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-2 tracking-tight group-hover:text-blue-400 transition-colors">{project.title}</h3>
+                <h3 className="text-2xl font-bold text-white mb-2 tracking-tight group-hover:text-blue-400 transition-colors italic uppercase">{project.title}</h3>
                 <p className="text-slate-500 text-sm mb-6 line-clamp-2 leading-relaxed">{project.description}</p>
                 <div className="grid grid-cols-2 gap-4 mt-auto">
-                  <a href={project.githubUrl} target="_blank" rel="noreferrer" className="bg-white/5 text-center py-3 rounded-xl text-[11px] font-bold border border-white/5 transition-all hover:bg-white/10 active:scale-95 flex items-center justify-center gap-2"><Github size={14}/> Code</a>
-                  <a href={project.liveUrl} target="_blank" rel="noreferrer" className="bg-blue-600 text-white text-center py-3 rounded-xl text-[11px] font-bold shadow-lg hover:bg-blue-500 transition-all active:scale-95 flex items-center justify-center gap-2"><ExternalLink size={14}/> Demo</a>
+                  <a href={project.githubUrl} target="_blank" rel="noreferrer" className="bg-white/5 text-center py-3 rounded-xl text-[10px] font-bold border border-white/5 transition-all hover:bg-white/10 active:scale-95 flex items-center justify-center gap-2"><Github size={14}/> Code</a>
+                  <a href={project.liveUrl} target="_blank" rel="noreferrer" className="bg-blue-600 text-white text-center py-3 rounded-xl text-[10px] font-bold shadow-lg hover:bg-blue-500 transition-all active:scale-95 flex items-center justify-center gap-2"><ExternalLink size={14}/> Demo</a>
                 </div>
               </div>
             </div>
           )) : (
-            <div className="col-span-full py-20 text-center border-2 border-dashed border-white/10 rounded-[3rem]">
+            <div className="col-span-full py-20 text-center border-2 border-dashed border-white/10 rounded-[3rem] bg-white/[0.01]">
               <p className="text-slate-600 uppercase font-black italic tracking-[0.3em] text-sm">No Projects Linked to this Profile</p>
+              <p className="text-slate-500 text-[10px] mt-2 italic font-bold">Syncing with MongoDB Atlas...</p>
             </div>
           )}
         </div>
@@ -238,14 +251,17 @@ const Dashboard = () => {
                 </select>
               </div>
 
-              {/* RESTORED: GitHub and Live Demo Inputs */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <input type="url" placeholder="GitHub Link" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none focus:border-blue-500/50 transition-all text-xs" value={projectData.githubUrl} onChange={(e) => setProjectData({...projectData, githubUrl: e.target.value})} />
                 <input type="url" placeholder="Live Demo Link" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none focus:border-blue-500/50 transition-all text-xs" value={projectData.liveUrl} onChange={(e) => setProjectData({...projectData, liveUrl: e.target.value})} />
               </div>
 
-              <button type="submit" disabled={isSubmitting} className="w-full bg-white text-slate-950 font-black py-4 rounded-2xl shadow-xl mt-4 uppercase text-xs flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70">
-                {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Syncing...</> : (editingId ? "Update Project" : "Create Project")}
+              <button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="w-full bg-white text-slate-950 font-black py-4 rounded-2xl shadow-xl mt-4 uppercase text-xs flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70"
+              >
+                {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Syncing...</> : (editingId ? "Save Changes" : "Create Project")}
               </button>
             </form>
           </div>
