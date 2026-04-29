@@ -1,137 +1,163 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { User, Mail, Shield, ArrowLeft, Loader2, Camera, MapPin, Briefcase } from 'lucide-react';
+import { 
+  Layout, User, Code, MapPin, Mail, Briefcase, GraduationCap, 
+  Edit3, Github, Globe, Radar, ChevronRight, Loader2, LogOut, ArrowLeft
+} from 'lucide-react';
+import { Radar as RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, RadarComposed, ResponsiveContainer, RechartsRadar = RadarChart } from 'recharts';
 
 const Profile = () => {
   const navigate = useNavigate();
   const [userData, setUserData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
   useEffect(() => {
-    const fetchUserProfile = async () => {
+    const fetchData = async () => {
       const userId = localStorage.getItem('userId');
-      const token = localStorage.getItem('token');
-
-      if (!userId || !token) {
-        return navigate('/login');
-      }
+      if (!userId) return navigate('/login');
 
       try {
-        const res = await axios.get(`${API_URL}/auth/user/${userId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.data) {
-          setUserData(res.data);
-        }
-      } catch (error) {
-        console.error("Profile Fetch Error:", error);
+        const [uRes, pRes] = await Promise.all([
+          axios.get(`${API_URL}/auth/user/${userId}`),
+          axios.get(`${API_URL}/projects/${userId}`)
+        ]);
+        setUserData(uRes.data.user || uRes.data);
+        setProjects(Array.isArray(pRes.data) ? pRes.data : []);
+      } catch (err) {
+        console.error("Profile Fetch Error:", err);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
+    fetchData();
+  }, []);
 
-    fetchUserProfile();
-  }, [navigate, API_URL]);
+  // Skill Radar Data
+  const skillData = [
+    { subject: 'Frontend', A: 90, fullMark: 100 },
+    { subject: 'Backend', A: 85, fullMark: 100 },
+    { subject: 'Database', A: 80, fullMark: 100 },
+    { subject: 'Python', A: 75, fullMark: 100 },
+    { subject: 'Logic', A: 95, fullMark: 100 },
+    { subject: 'DevOps', A: 60, fullMark: 100 },
+  ];
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center">
-        <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
-        <p className="text-blue-500 font-bold uppercase tracking-widest text-[10px]">Loading Profile...</p>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center">
+      <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+      <p className="text-blue-500 font-bold uppercase tracking-widest text-[10px]">Loading Profile...</p>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-300 p-4 md:p-10 font-sans">
-      <div className="max-w-4xl mx-auto">
-        {/* Back Button */}
-        <button 
-          onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-2 text-slate-500 hover:text-white transition-colors mb-8 group"
-        >
-          <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-          <span className="font-bold uppercase text-xs tracking-widest">Back to Dashboard</span>
+    <div className="min-h-screen bg-[#020617] text-slate-300 font-sans pb-20">
+      {/* Header / Nav */}
+      <nav className="p-6 flex justify-between items-center border-b border-white/5 bg-[#020617]/50 backdrop-blur-md sticky top-0 z-50">
+        <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+          <ArrowLeft size={20} /> <span className="font-bold uppercase text-[10px] tracking-widest">Back to DevSync</span>
         </button>
+        <div className="flex items-center gap-3 text-white font-black italic text-xl uppercase">
+          <Code size={24} className="text-blue-600" /> Profile
+        </div>
+      </nav>
 
-        <div className="bg-white/[0.03] border border-white/5 rounded-[3rem] overflow-hidden shadow-2xl">
-          {/* Profile Header/Cover */}
-          <div className="h-32 bg-gradient-to-r from-blue-600 to-indigo-900 relative">
-            <div className="absolute -bottom-12 left-10">
-              <div className="w-24 h-24 bg-slate-900 rounded-[2rem] border-4 border-[#020617] flex items-center justify-center text-white shadow-xl relative group">
-                <User size={40} />
-                <div className="absolute inset-0 bg-black/40 rounded-[2rem] opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer">
-                  <Camera size={20} />
+      <div className="max-w-6xl mx-auto px-4 mt-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Left Column: Identity Card */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="bg-white/[0.03] border border-white/10 rounded-[3rem] p-10 text-center shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-blue-600/20 to-purple-600/20" />
+              <div className="relative">
+                <div className="w-32 h-32 bg-slate-800 rounded-[2.5rem] mx-auto mb-6 border-4 border-[#020617] flex items-center justify-center overflow-hidden">
+                  <User size={60} className="text-slate-600" />
                 </div>
+                <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter mb-2">
+                  {userData?.name || "Dinesh Kumar"}
+                </h2>
+                <p className="text-blue-500 font-bold uppercase text-[10px] tracking-[0.2em] mb-6">MERN Stack Developer</p>
+                
+                <div className="space-y-3 text-sm text-slate-400 mb-8">
+                  <div className="flex items-center justify-center gap-2"><MapPin size={16} /> Chandigarh, India</div>
+                  <div className="flex items-center justify-center gap-2"><Mail size={16} /> {userData?.email || "dev@dinesh.com"}</div>
+                </div>
+
+                <button onClick={() => setIsEditModalOpen(true)} className="w-full py-4 bg-white text-black font-black rounded-2xl flex items-center justify-center gap-2 hover:bg-blue-50 transition-all active:scale-95">
+                  <Edit3 size={18} /> Edit Profile
+                </button>
+              </div>
+            </div>
+
+            {/* Stats Card */}
+            <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 grid grid-cols-2 gap-4">
+              <div className="text-center p-4 bg-white/5 rounded-3xl">
+                <p className="text-3xl font-black text-white italic">{projects.length}</p>
+                <p className="text-[9px] font-bold text-slate-500 uppercase">Projects</p>
+              </div>
+              <div className="text-center p-4 bg-white/5 rounded-3xl">
+                <p className="text-3xl font-black text-white italic">10+</p>
+                <p className="text-[9px] font-bold text-slate-500 uppercase">Skills</p>
               </div>
             </div>
           </div>
 
-          <div className="pt-16 p-10">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
-              <div>
-                <h1 className="text-4xl font-black text-white uppercase italic tracking-tighter">
-                  {userData?.name || "Developer"}
-                </h1>
-                <p className="text-blue-500 font-bold uppercase text-[10px] tracking-[0.3em] mt-1">Full Stack Developer</p>
-              </div>
-              <button className="bg-white text-slate-950 font-black px-6 py-3 rounded-2xl text-xs uppercase tracking-tighter hover:bg-blue-50 transition-all active:scale-95">
-                Edit Profile
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Info Card 1: Account Details */}
-              <div className="bg-white/[0.02] border border-white/5 p-6 rounded-[2rem] space-y-4">
-                <h3 className="text-white font-bold text-xs uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <Shield size={16} className="text-blue-500" /> Account Security
-                </h3>
-                <div className="flex items-center gap-4 p-4 bg-slate-950/50 rounded-2xl border border-white/5">
-                  <Mail className="text-slate-500" size={18} />
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-slate-600 tracking-tight">Email Address</p>
-                    <p className="text-sm text-white font-medium">{userData?.email || "Not Available"}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 p-4 bg-slate-950/50 rounded-2xl border border-white/5">
-                  <User className="text-slate-500" size={18} />
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-slate-600 tracking-tight">User ID</p>
-                    <p className="text-[10px] text-slate-400 font-mono break-all">{userData?._id || "---"}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Info Card 2: Professional Details */}
-              <div className="bg-white/[0.02] border border-white/5 p-6 rounded-[2rem] space-y-4">
-                <h3 className="text-white font-bold text-xs uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <Briefcase size={16} className="text-purple-500" /> Professional Info
-                </h3>
-                <div className="flex items-center gap-4 p-4 bg-slate-950/50 rounded-2xl border border-white/5">
-                  <MapPin className="text-slate-500" size={18} />
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-slate-600 tracking-tight">Location</p>
-                    <p className="text-sm text-white font-medium">India</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 p-4 bg-slate-950/50 rounded-2xl border border-white/5">
-                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-slate-600 tracking-tight">Account Status</p>
-                    <p className="text-sm text-white font-medium">Verified Developer</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {/* Right Column: Skills & Bio */}
+          <div className="lg:col-span-2 space-y-8">
             
-            <div className="mt-10 p-6 border border-blue-500/10 bg-blue-500/5 rounded-[2rem] text-center">
-                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">
-                  Workspace linked to: <span className="text-blue-400">{userData?.email}</span>
-                </p>
+            {/* Skill Radar */}
+            <div className="bg-white/[0.03] border border-white/10 rounded-[3.5rem] p-8 h-[400px] relative">
+               <h4 className="text-white font-black uppercase italic tracking-widest text-sm mb-4 flex items-center gap-2">
+                <Radar size={20} className="text-blue-500" /> Tech Proficiency
+               </h4>
+               <ResponsiveContainer width="100%" height="90%">
+                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={skillData}>
+                  <PolarGrid stroke="#1e293b" />
+                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 12, fontWeight: 'bold' }} />
+                  <RadarComposed name="Dinesh" dataKey="A" stroke="#2563eb" fill="#2563eb" fillOpacity={0.4} />
+                </RadarChart>
+               </ResponsiveContainer>
             </div>
+
+            {/* Experience & Education */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white/[0.03] border border-white/10 rounded-[3rem] p-8">
+                <h4 className="text-white font-black uppercase italic tracking-widest text-sm mb-6 flex items-center gap-2">
+                  <GraduationCap size={20} className="text-purple-500" /> Education
+                </h4>
+                <div className="space-y-6">
+                  <div className="border-l-2 border-purple-500/30 pl-4">
+                    <p className="text-white font-bold uppercase text-xs">Punjabi University Patiala</p>
+                    <p className="text-slate-500 text-xs mt-1">BA (CS & Economics) | 2024</p>
+                  </div>
+                  <div className="border-l-2 border-blue-500/30 pl-4">
+                    <p className="text-white font-bold uppercase text-xs">Data Science & ML</p>
+                    <p className="text-slate-500 text-xs mt-1">Advanced Course | Currently Enrolled</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white/[0.03] border border-white/10 rounded-[3rem] p-8">
+                <h4 className="text-white font-black uppercase italic tracking-widest text-sm mb-6 flex items-center gap-2">
+                  <Briefcase size={20} className="text-emerald-500" /> Experience
+                </h4>
+                <div className="space-y-6">
+                  <div className="border-l-2 border-emerald-500/30 pl-4">
+                    <p className="text-white font-bold uppercase text-xs">MERN Developer</p>
+                    <p className="text-slate-500 text-xs mt-1">Freelance / Personal Projects</p>
+                  </div>
+                  <div className="border-l-2 border-slate-500/30 pl-4">
+                    <p className="text-white font-bold uppercase text-xs">Technical Support</p>
+                    <p className="text-slate-500 text-xs mt-1">Interviewing at Teleperformance</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
