@@ -13,7 +13,7 @@ const Dashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [projects, setProjects] = useState([]);
   const [userData, setUserData] = useState(null);
-  const [isAuth, setIsAuth] = useState(false); // Added to prevent flicker
+  const [loading, setLoading] = useState(true); // NEW: Handle the loading state
 
   const [imageFile, setImageFile] = useState(null);
   const [projectData, setProjectData] = useState({ 
@@ -21,28 +21,28 @@ const Dashboard = () => {
     status: 'To-Do', priority: 'Medium', tags: '', category: 'Fullstack'
   });
 
-  // THE DEPLOYMENT FIX: Dynamic API URL
   const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
   const userId = localStorage.getItem('userId');
-  const token = localStorage.getItem('token'); // Get token for security
+  const token = localStorage.getItem('token');
 
   const fetchData = async () => {
     if (!userId) return;
     try {
-      // Updated to use dynamic API_URL
       const userRes = await axios.get(`${API_URL}/auth/user/${userId}`);
       setUserData(userRes.data);
       const projectRes = await axios.get(`${API_URL}/projects/${userId}`);
       setProjects(projectRes.data);
-    } catch (error) { console.error(error); }
+      setLoading(false); // Data is here, stop loading
+    } catch (error) { 
+      console.error(error); 
+      setLoading(false);
+    }
   };
 
   useEffect(() => { 
-    // THE FLICKER FIX: Check both userId and token
     if (!userId || !token) {
       navigate('/login'); 
     } else {
-      setIsAuth(true); // Confirmed logged in
       fetchData(); 
     }
   }, [userId, token, location.key]);
@@ -70,7 +70,6 @@ const Dashboard = () => {
       formData.append('ownerId', userId);
       if (imageFile) formData.append('thumbnail', imageFile);
 
-      // Updated to use dynamic API_URL
       await axios.post(`${API_URL}/projects/add`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
@@ -82,13 +81,15 @@ const Dashboard = () => {
     } catch (error) { alert("Project creation failed."); }
   };
 
-  // THE FLICKER FIX: Don't render UI until Auth is confirmed
-  if (!isAuth) return null;
+  // NEW: Loading Screen while authenticating
+  if (loading) {
+    return <div className="min-h-screen bg-[#020617] flex items-center justify-center text-white font-black italic text-2xl uppercase tracking-tighter">Syncing...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-[#020617] flex text-slate-300 font-sans">
-      {/* REST OF YOUR UI REMAINS EXACTLY AS IT WAS */}
-      <aside className="w-64 border-r border-white/5 bg-white/[0.02] backdrop-blur-xl p-6 flex flex-col fixed h-full z-20">
+       {/* Sidebar and Main content exactly as you had them */}
+       <aside className="w-64 border-r border-white/5 bg-white/[0.02] backdrop-blur-xl p-6 flex flex-col fixed h-full z-20">
         <div className="flex items-center gap-3 mb-10 text-white px-2">
           <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg"><Code size={24} /></div>
           <span className="text-2xl font-bold tracking-tight uppercase">DevSync</span>
@@ -97,7 +98,7 @@ const Dashboard = () => {
           <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-md shadow-blue-900/20"><Layout size={20}/> Overview</button>
           <button onClick={() => navigate('/profile')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 hover:text-white transition-all font-medium"><User size={20}/> My Profile</button>
         </nav>
-        <button onClick={() => { localStorage.removeItem('userId'); localStorage.removeItem('token'); navigate('/login'); }} className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-red-400 mt-auto border-t border-white/5 pt-4 font-bold text-sm transition-colors"><LogOut size={18} /> Logout</button>
+        <button onClick={() => { localStorage.clear(); navigate('/login'); }} className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-red-400 mt-auto border-t border-white/5 pt-4 font-bold text-sm transition-colors"><LogOut size={18} /> Logout</button>
       </aside>
 
       <main className="flex-1 ml-64 p-10">
@@ -111,7 +112,6 @@ const Dashboard = () => {
           <button onClick={() => setIsModalOpen(true)} className="bg-white text-slate-950 font-black px-8 py-4 rounded-[1.5rem] flex items-center gap-2 hover:bg-blue-50 transition-all active:scale-95 shadow-2xl shadow-blue-500/10"><Plus size={20}/> New Project</button>
         </header>
 
-        {/* ANALYTICS SECTION */}
         <div className="grid grid-cols-2 gap-8 mb-12">
           <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-8 h-[350px]">
             <h4 className="text-white font-bold mb-6 text-sm uppercase tracking-widest flex items-center gap-2"><CheckCircle2 size={18} className="text-blue-500" /> Project Status</h4>
@@ -139,7 +139,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* PROJECT GRID */}
         <div className="grid grid-cols-3 gap-8">
           {projects.map((project) => (
             <div key={project._id} className="bg-white/[0.03] backdrop-blur-xl border border-white/5 rounded-[2.5rem] overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:border-blue-500/40 hover:bg-white/[0.05] group flex flex-col shadow-xl">
@@ -163,7 +162,7 @@ const Dashboard = () => {
         </div>
       </main>
 
-      {/* MODAL POP-UP */}
+      {/* Modal logic unchanged */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl p-4">
           <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-[3rem] p-10 shadow-2xl overflow-y-auto max-h-[90vh]">
@@ -171,18 +170,14 @@ const Dashboard = () => {
               <h3 className="text-3xl font-black tracking-tight">New Project</h3>
               <button onClick={() => setIsModalOpen(false)} className="hover:rotate-90 transition-transform duration-300 text-slate-500 hover:text-white"><X size={32} /></button>
             </div>
-            
             <form onSubmit={handleCreateProject} className="space-y-4">
               <div className="relative group flex flex-col items-center justify-center border-2 border-dashed border-white/5 bg-white/5 hover:border-blue-500/50 rounded-[2rem] p-6 transition-all">
                 <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={(e) => setImageFile(e.target.files[0])} />
                 <Upload size={24} className="text-blue-500 mb-2" />
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{imageFile ? imageFile.name : 'Upload Thumbnail'}</p>
               </div>
-
               <input type="text" required placeholder="Project Title" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none" value={projectData.title} onChange={(e) => setProjectData({...projectData, title: e.target.value})} />
-              
               <textarea placeholder="Description" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none h-24 text-sm" value={projectData.description} onChange={(e) => setProjectData({...projectData, description: e.target.value})} />
-
               <div className="grid grid-cols-2 gap-4">
                 <select className="bg-slate-950 border border-white/5 text-slate-400 p-4 rounded-2xl" value={projectData.status} onChange={(e) => setProjectData({...projectData, status: e.target.value})}>
                     <option value="To-Do">To-Do</option>
@@ -195,12 +190,10 @@ const Dashboard = () => {
                     <option value="Backend">Backend</option>
                 </select>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <input type="url" placeholder="GitHub Link" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none" value={projectData.githubUrl} onChange={(e) => setProjectData({...projectData, githubUrl: e.target.value})} />
                 <input type="url" placeholder="Live Demo" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none" value={projectData.liveUrl} onChange={(e) => setProjectData({...projectData, liveUrl: e.target.value})} />
               </div>
-
               <button type="submit" className="w-full bg-white text-slate-950 font-black py-4 rounded-2xl shadow-xl hover:bg-blue-50 transition-all mt-4">Save Project</button>
             </form>
           </div>
@@ -210,4 +203,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard; 
+export default Dashboard;
