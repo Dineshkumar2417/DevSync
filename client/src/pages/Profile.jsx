@@ -28,13 +28,18 @@ const Profile = () => {
 
   const handleUpdateProfile = async () => {
     try {
-      // Hits your backend PUT route
-      await axios.put(`${API_URL}/auth/user/update/${userId}`, userData);
+      // THE FIX: URL changed to match your auth.js route exactly
+      // Sending 'name' as per your backend router.put('/user/:id') logic
+      const res = await axios.put(`${API_URL}/auth/user/${userId}`, {
+        name: userData.name
+      });
+      
+      setUserData(res.data);
       setIsEditing(false);
       alert("Profile updated successfully!");
     } catch (err) { 
       console.error(err);
-      alert("Update failed. Make sure your backend route /auth/user/update/:id is ready."); 
+      alert("Update failed. Check browser console for details."); 
     }
   };
 
@@ -48,17 +53,15 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-[#020617] flex text-slate-300 font-sans relative">
-      {/* MOBILE OVERLAY */}
       {isSidebarOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
       )}
 
-      {/* SIDEBAR */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-white/5 bg-[#020617]/95 backdrop-blur-xl p-6 flex flex-col transition-transform duration-300 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex items-center justify-between mb-10 text-white">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg"><Code size={24} /></div>
-            <span className="text-2xl font-bold tracking-tight uppercase tracking-widest">DevSync</span>
+            <span className="text-2xl font-bold tracking-tight uppercase tracking-widest italic">DevSync</span>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-500"><X size={24}/></button>
         </div>
@@ -93,7 +96,7 @@ const Profile = () => {
               {isEditing ? (
                 <div className="space-y-3 relative z-10">
                   <input className="w-full bg-slate-950 border border-white/10 p-3 rounded-xl text-white text-center text-sm outline-none focus:border-blue-500" value={userData.name} onChange={(e) => setUserData({...userData, name: e.target.value})} placeholder="Name" />
-                  <input className="w-full bg-slate-950 border border-white/10 p-3 rounded-xl text-white text-center text-sm outline-none focus:border-blue-500" value={userData.email} onChange={(e) => setUserData({...userData, email: e.target.value})} placeholder="Email" />
+                  <p className="text-slate-600 text-[10px] uppercase font-bold italic">Email cannot be changed</p>
                 </div>
               ) : (
                 <>
