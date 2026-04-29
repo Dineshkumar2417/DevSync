@@ -12,7 +12,7 @@ const Dashboard = () => {
   const location = useLocation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null); // Track if we are editing
+  const [editingId, setEditingId] = useState(null);
   const [projects, setProjects] = useState([]);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -24,29 +24,36 @@ const Dashboard = () => {
   });
 
   const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
-  const userId = localStorage.getItem('userId');
-  const token = localStorage.getItem('token');
 
   const fetchData = async () => {
-    if (!userId) return;
+    const userId = localStorage.getItem('userId');
+    const token = localStorage.getItem('token');
+
+    if (!userId || !token) {
+      navigate('/login');
+      return;
+    }
+
     try {
-      const userRes = await axios.get(`${API_URL}/auth/user/${userId}`);
+      // Fetch user and projects in parallel for speed
+      const [userRes, projectRes] = await Promise.all([
+        axios.get(`${API_URL}/auth/user/${userId}`),
+        axios.get(`${API_URL}/projects/${userId}`)
+      ]);
+      
       setUserData(userRes.data);
-      const projectRes = await axios.get(`${API_URL}/projects/${userId}`);
       setProjects(projectRes.data);
       setLoading(false);
     } catch (error) { 
-      console.error(error); 
+      console.error("Dashboard Fetch Error:", error); 
       setLoading(false);
     }
   };
 
   useEffect(() => { 
-    if (!userId || !token) navigate('/login'); 
-    else fetchData(); 
-  }, [userId, token, location.key]);
+    fetchData(); 
+  }, [location.key]);
 
-  // Logic to pre-fill modal for editing
   const handleEditClick = (project) => {
     setEditingId(project._id);
     setProjectData({
@@ -62,13 +69,11 @@ const Dashboard = () => {
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
+    const userId = localStorage.getItem('userId');
     try {
       if (editingId) {
-        // UPDATE PROJECT
         await axios.put(`${API_URL}/projects/update/${editingId}`, projectData);
-        alert("Project updated!");
       } else {
-        // CREATE PROJECT
         const formData = new FormData();
         Object.keys(projectData).forEach(key => formData.append(key, projectData[key]));
         formData.append('ownerId', userId);
@@ -77,7 +82,6 @@ const Dashboard = () => {
         await axios.post(`${API_URL}/projects/add`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
-        alert("Project added!");
       }
 
       setIsModalOpen(false);
@@ -87,10 +91,11 @@ const Dashboard = () => {
       fetchData(); 
     } catch (error) { 
         console.error(error);
-        alert("Action failed. Ensure backend routes are ready."); 
+        alert("Action failed. Check backend routes."); 
     }
   };
 
+  // ANALYTICS LOGIC (Kept exactly as you had it)
   const statusData = useMemo(() => {
     const counts = { 'To-Do': 0, 'In Progress': 0, 'Completed': 0 };
     projects.forEach(p => counts[p.status]++);
@@ -105,7 +110,7 @@ const Dashboard = () => {
 
   const COLORS = ['#3b82f6', '#f59e0b', '#10b981'];
 
-  if (loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center text-white italic font-black uppercase">Syncing...</div>;
+  if (loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center text-white italic font-black uppercase text-2xl tracking-tighter">Syncing...</div>;
 
   return (
     <div className="min-h-screen bg-[#020617] flex text-slate-300 font-sans relative">
@@ -116,13 +121,13 @@ const Dashboard = () => {
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-white/5 bg-[#020617]/95 backdrop-blur-xl p-6 flex flex-col transition-transform duration-300 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex items-center justify-between mb-10 text-white px-2">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg"><Code size={24} /></div>
+            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20"><Code size={24} /></div>
             <span className="text-2xl font-bold uppercase tracking-widest italic">DevSync</span>
           </div>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-500"><X size={24}/></button>
         </div>
         <nav className="flex-1 space-y-2">
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white font-bold"><Layout size={20}/> Overview</button>
+          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/20"><Layout size={20}/> Overview</button>
           <button onClick={() => navigate('/profile')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 hover:text-white transition-all font-medium"><User size={20}/> My Profile</button>
         </nav>
         <button onClick={() => { localStorage.clear(); navigate('/login'); }} className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-red-400 mt-auto border-t border-white/5 pt-4 font-bold text-sm transition-colors"><LogOut size={18} /> Logout</button>
@@ -136,26 +141,47 @@ const Dashboard = () => {
               <h2 className="text-3xl md:text-4xl font-black text-white uppercase tracking-tighter italic">
                   {userData ? `Hi, ${userData.name.split(' ')[0]}!` : "Dashboard"}
               </h2>
-              <p className="text-slate-500 font-medium uppercase text-[10px]">Developer Workspace</p>
+              <p className="text-slate-500 font-medium uppercase text-[10px] tracking-widest">Developer Workspace</p>
             </div>
           </div>
-          <button onClick={() => { setEditingId(null); setIsModalOpen(true); }} className="w-full md:w-auto bg-white text-slate-950 font-black px-8 py-4 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-2xl">
+          <button onClick={() => { setEditingId(null); setIsModalOpen(true); }} className="w-full md:w-auto bg-white text-slate-950 font-black px-8 py-4 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-2xl hover:bg-blue-50 transition-all active:scale-95">
             <Plus size={20}/> New Project
           </button>
         </header>
+
+        {/* ANALYTICS SECTION */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-12">
+          <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-6 md:p-8 h-[350px]">
+            <h4 className="text-white font-bold mb-6 text-sm uppercase tracking-widest flex items-center gap-2"><CheckCircle2 size={18} className="text-blue-500" /> Project Status</h4>
+            <ResponsiveContainer width="100%" height="80%">
+              <PieChart>
+                <Pie data={statusData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                  {statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                </Pie>
+                <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '10px' }} />
+                <Legend verticalAlign="bottom" height={36}/>
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-6 md:p-8 h-[350px]">
+            <h4 className="text-white font-bold mb-6 text-sm uppercase tracking-widest flex items-center gap-2"><BarChart3 size={18} className="text-purple-500" /> Stack Analysis</h4>
+            <ResponsiveContainer width="100%" height="80%">
+              <BarChart data={categoryData}>
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 10}} />
+                <YAxis hide />
+                <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '10px' }} />
+                <Bar dataKey="count" fill="#8b5cf6" radius={[10, 10, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
 
         {/* PROJECT GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           {projects.map((project) => (
             <div key={project._id} className="bg-white/[0.03] border border-white/5 rounded-[2.5rem] overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:border-blue-500/40 group flex flex-col shadow-xl relative">
-              
-              {/* EDIT BUTTON (Visible on hover) */}
-              <button 
-                onClick={() => handleEditClick(project)}
-                className="absolute top-4 right-4 z-10 p-3 bg-blue-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-xl"
-              >
-                <Edit3 size={16} />
-              </button>
+              <button onClick={() => handleEditClick(project)} className="absolute top-4 right-4 z-10 p-3 bg-blue-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-xl"><Edit3 size={16} /></button>
 
               <div className="h-48 bg-slate-950/40 flex items-center justify-center border-b border-white/5 overflow-hidden">
                 {project.thumbnail ? <img src={project.thumbnail} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" /> : <ImageIcon size={48} className="text-slate-800" />}
@@ -177,7 +203,7 @@ const Dashboard = () => {
         </div>
       </main>
 
-      {/* DYNAMIC MODAL (For both Add and Edit) */}
+      {/* MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4">
           <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-[3rem] p-10 shadow-2xl overflow-y-auto max-h-[90vh]">
@@ -185,19 +211,9 @@ const Dashboard = () => {
               <h3 className="text-2xl font-black uppercase italic tracking-tighter">{editingId ? "Update Project" : "New Project"}</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-white transition-transform hover:rotate-90"><X size={32} /></button>
             </div>
-            
             <form onSubmit={handleFormSubmit} className="space-y-4">
-              {!editingId && (
-                <div className="relative group flex flex-col items-center justify-center border-2 border-dashed border-white/5 bg-white/5 rounded-[2rem] p-6 transition-all hover:border-blue-500/50">
-                  <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer z-10" onChange={(e) => setImageFile(e.target.files[0])} />
-                  <Upload size={24} className="text-blue-500 mb-2" />
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">{imageFile ? imageFile.name : 'Upload Thumbnail'}</p>
-                </div>
-              )}
-
               <input type="text" required placeholder="Project Title" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none focus:border-blue-500/50" value={projectData.title} onChange={(e) => setProjectData({...projectData, title: e.target.value})} />
               <textarea placeholder="Description" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none h-24 text-sm" value={projectData.description} onChange={(e) => setProjectData({...projectData, description: e.target.value})} />
-
               <div className="grid grid-cols-2 gap-4">
                 <select className="bg-slate-950 border border-white/5 text-slate-400 p-4 rounded-2xl text-xs font-bold" value={projectData.status} onChange={(e) => setProjectData({...projectData, status: e.target.value})}>
                     <option value="To-Do">To-Do</option>
@@ -210,12 +226,10 @@ const Dashboard = () => {
                     <option value="Backend">Backend</option>
                 </select>
               </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <input type="url" placeholder="GitHub Link" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none text-xs" value={projectData.githubUrl} onChange={(e) => setProjectData({...projectData, githubUrl: e.target.value})} />
                 <input type="url" placeholder="Live Demo" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none text-xs" value={projectData.liveUrl} onChange={(e) => setProjectData({...projectData, liveUrl: e.target.value})} />
               </div>
-
               <button type="submit" className="w-full bg-white text-slate-950 font-black py-4 rounded-2xl shadow-xl hover:bg-blue-50 transition-all mt-4 uppercase text-xs tracking-widest">
                 {editingId ? "Save Changes" : "Create Project"}
               </button>
