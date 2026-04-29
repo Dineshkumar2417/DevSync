@@ -17,8 +17,6 @@ const Dashboard = () => {
   const [editingId, setEditingId] = useState(null);
   const [projects, setProjects] = useState([]);
   const [userData, setUserData] = useState(null);
-  
-  // Loading & Smoothness States
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -34,27 +32,34 @@ const Dashboard = () => {
     const userId = localStorage.getItem('userId');
     const token = localStorage.getItem('token');
 
+    // Debugging ke liye console logs (F12 check karein)
+    console.log("Current Logged In UserId:", userId);
+
     if (!userId || !token) {
       return navigate('/login');
     }
 
     try {
-      // Parallel Request for Speed (Smoothing the load)
+      // Parallel Request for Speed
       const [userRes, projectRes] = await Promise.all([
         axios.get(`${API_URL}/auth/user/${userId}`),
         axios.get(`${API_URL}/projects/${userId}`)
       ]);
 
+      console.log("Projects from MongoDB:", projectRes.data);
+
       if (userRes.data) setUserData(userRes.data);
       
-      // MongoDB se aaye huye projects ko state mein set karna
-      if (Array.isArray(projectRes.data)) {
+      // Forcefully checking if data is an array
+      if (projectRes.data && Array.isArray(projectRes.data)) {
         setProjects(projectRes.data);
+      } else if (projectRes.data.projects && Array.isArray(projectRes.data.projects)) {
+        // Handling nested response if any
+        setProjects(projectRes.data.projects);
       }
     } catch (error) {
-      console.error("MongoDB Sync Error:", error);
+      console.error("Dashboard Data Fetch Error:", error);
     } finally {
-      // Smooth animation transition
       setTimeout(() => setIsInitialLoad(false), 800);
     }
   };
@@ -101,7 +106,8 @@ const Dashboard = () => {
       setProjectData({ title: '', description: '', githubUrl: '', liveUrl: '', status: 'To-Do', category: 'Fullstack' });
       await fetchData(); 
     } catch (error) { 
-        alert("Action failed. Check backend routes."); 
+        console.error("Submit Error:", error);
+        alert("Operation failed. Check if backend is running."); 
     } finally {
         setIsSubmitting(false);
     }
@@ -123,12 +129,12 @@ const Dashboard = () => {
 
   if (isInitialLoad) {
     return (
-      <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center gap-6">
+      <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center gap-6 text-center">
         <div className="relative">
           <div className="w-20 h-20 border-4 border-blue-600/10 rounded-full absolute animate-ping"></div>
           <Loader2 className="w-12 h-12 text-blue-600 animate-spin relative z-10" />
         </div>
-        <p className="text-blue-500 font-bold uppercase tracking-[0.4em] text-[10px] animate-pulse">Syncing Environment</p>
+        <p className="text-blue-500 font-bold uppercase tracking-[0.4em] text-[10px] animate-pulse">Establishing Connection</p>
       </div>
     );
   }
@@ -160,7 +166,7 @@ const Dashboard = () => {
               <h2 className="text-4xl font-black text-white uppercase italic tracking-tighter">
                   {userData ? `Hi, ${userData.name.split(' ')[0]}!` : "Dashboard"}
               </h2>
-              <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em] mt-1">Developer Workspace</p>
+              <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em] mt-1">Total Projects: {projects.length}</p>
             </div>
           </div>
           <button onClick={() => { setEditingId(null); setIsModalOpen(true); }} className="w-full md:w-auto bg-white text-slate-950 font-black px-8 py-4 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-2xl hover:bg-blue-50 transition-all active:scale-95">
@@ -195,7 +201,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* PROJECT GRID - Dynamic rendering from MongoDB */}
+        {/* PROJECT GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {projects.length > 0 ? projects.map((project, idx) => (
             <div key={project._id} 
@@ -213,20 +219,25 @@ const Dashboard = () => {
                 <h3 className="text-2xl font-bold text-white mb-2 tracking-tight group-hover:text-blue-400 transition-colors">{project.title}</h3>
                 <p className="text-slate-500 text-sm mb-6 line-clamp-2 leading-relaxed">{project.description}</p>
                 <div className="grid grid-cols-2 gap-4 mt-auto">
-                  <a href={project.githubUrl} target="_blank" rel="noreferrer" className="bg-white/5 text-center py-3 rounded-xl text-[11px] font-bold border border-white/5 transition-all hover:bg-white/10 active:scale-95">Code</a>
-                  <a href={project.liveUrl} target="_blank" rel="noreferrer" className="bg-blue-600 text-white text-center py-3 rounded-xl text-[11px] font-bold shadow-lg hover:bg-blue-500 transition-all active:scale-95">Demo</a>
+                  <a href={project.githubUrl} target="_blank" rel="noreferrer" className="bg-white/5 text-center py-3 rounded-xl text-[11px] font-bold border border-white/5 transition-all hover:bg-white/10 active:scale-95 flex items-center justify-center gap-2">
+                    <Github size={14}/> Code
+                  </a>
+                  <a href={project.liveUrl} target="_blank" rel="noreferrer" className="bg-blue-600 text-white text-center py-3 rounded-xl text-[11px] font-bold shadow-lg hover:bg-blue-500 transition-all active:scale-95 flex items-center justify-center gap-2">
+                    <ExternalLink size={14}/> Demo
+                  </a>
                 </div>
               </div>
             </div>
           )) : (
-            <div className="col-span-full py-20 text-center border-2 border-dashed border-white/5 rounded-[3rem]">
+            <div className="col-span-full py-20 text-center border-2 border-dashed border-white/10 rounded-[3rem] bg-white/[0.01]">
               <p className="text-slate-600 uppercase font-black italic tracking-[0.3em] text-sm">No Projects Found In Workspace</p>
+              <p className="text-slate-500 text-[10px] mt-2 font-bold uppercase">Syncing with MongoDB Atlas...</p>
             </div>
           )}
         </div>
       </main>
 
-      {/* MODAL */}
+      {/* MODAL (unchanged design) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4">
           <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-[3rem] p-10 shadow-2xl overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-300">
