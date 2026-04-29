@@ -135,10 +135,11 @@ const Dashboard = () => {
           <div className="flex items-center gap-4">
             <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-3 bg-white/5 rounded-xl text-white"><Menu size={24} /></button>
             <div>
+              {/* RESTORED: Dynamic User Name Greeting */}
               <h2 className="text-4xl font-black text-white uppercase italic tracking-tighter">
                   {userData ? `Hi, ${userData.name.split(' ')[0]}!` : "Dashboard"}
               </h2>
-              <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em] mt-1">Profile Workspace: {projects.length} Projects</p>
+              <p className="text-slate-500 font-bold uppercase text-[10px] tracking-[0.2em] mt-1">Developer Workspace</p>
             </div>
           </div>
           <button onClick={() => { setEditingId(null); setIsModalOpen(true); }} className="w-full md:w-auto bg-white text-slate-950 font-black px-8 py-4 rounded-[1.5rem] flex items-center justify-center gap-2 shadow-2xl active:scale-95">
@@ -203,7 +204,7 @@ const Dashboard = () => {
         </div>
       </main>
 
-      {/* MODAL - RESTORED RECENTLY REMOVED INPUTS */}
+      {/* MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4">
           <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-[3rem] p-8 md:p-10 shadow-2xl overflow-y-auto max-h-[90vh] animate-in zoom-in-95 duration-300">
@@ -237,7 +238,7 @@ const Dashboard = () => {
                 </select>
               </div>
 
-              {/* RESTORED INPUTS FOR GITHUB AND LIVE LINK */}
+              {/* RESTORED: GitHub and Live Demo Inputs */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <input type="url" placeholder="GitHub Link" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none focus:border-blue-500/50 transition-all text-xs" value={projectData.githubUrl} onChange={(e) => setProjectData({...projectData, githubUrl: e.target.value})} />
                 <input type="url" placeholder="Live Demo Link" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none focus:border-blue-500/50 transition-all text-xs" value={projectData.liveUrl} onChange={(e) => setProjectData({...projectData, liveUrl: e.target.value})} />
