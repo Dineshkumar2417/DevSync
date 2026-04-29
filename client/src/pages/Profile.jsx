@@ -1,119 +1,95 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { User, Mail, Calendar, ArrowLeft, ShieldCheck, Edit3, Check, X, Lock } from 'lucide-react';
+import { Layout, User, Code, Mail, MapPin, Briefcase, ChevronLeft } from 'lucide-react';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
 
 const Profile = () => {
   const navigate = useNavigate();
   const [userData, setUserData] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  
-  const [newName, setNewName] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  
+  const [projects, setProjects] = useState([]);
   const userId = localStorage.getItem('userId');
 
-  const fetchUser = async () => {
-    try {
-      const res = await axios.get(`http://localhost:5001/api/auth/user/${userId}`);
-      setUserData(res.data);
-      setNewName(res.data.name);
-    } catch (error) {
-      console.error("Error fetching profile:", error);
-    }
-  };
-
   useEffect(() => {
-    fetchUser();
+    const fetchData = async () => {
+      try {
+        const userRes = await axios.get(`http://localhost:5001/api/auth/user/${userId}`);
+        setUserData(userRes.data);
+        const projRes = await axios.get(`http://localhost:5001/api/projects/${userId}`);
+        setProjects(projRes.data);
+      } catch (err) { console.error(err); }
+    };
+    if (userId) fetchData();
   }, [userId]);
 
-  const handleUpdate = async (field) => {
-    try {
-      const data = field === 'name' ? { name: newName } : { password: newPassword };
-      await axios.put(`http://localhost:5001/api/auth/user/${userId}`, data);
-      
-      setIsEditing(false);
-      setIsChangingPassword(false);
-      setNewPassword("");
-      fetchUser();
-      alert(`${field === 'name' ? 'Name' : 'Password'} updated successfully!`);
-    } catch (error) {
-      alert("Update failed");
-    }
-  };
-
-  if (!userData) return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white font-bold">Loading Profile...</div>;
+  // SKILLS RADAR LOGIC
+  const radarData = useMemo(() => {
+    const skills = { Frontend: 0, Backend: 0, Database: 0, Logic: 0, UI_UX: 0 };
+    projects.forEach(p => {
+      if (p.category === 'Frontend') skills.Frontend += 20;
+      if (p.category === 'Backend') skills.Backend += 20;
+      if (p.category === 'Fullstack') { skills.Frontend += 10; skills.Backend += 10; }
+      skills.Database += 15; // Assuming every project has a DB
+      skills.Logic += 10;
+    });
+    return Object.keys(skills).map(key => ({ subject: key, A: Math.min(skills[key], 100) }));
+  }, [projects]);
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6 md:p-12 text-slate-300">
-      <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 text-slate-500 hover:text-white transition-colors mb-10 font-medium">
-        <ArrowLeft size={20} /> Back to Dashboard
+    <div className="min-h-screen bg-[#020617] text-slate-300 p-10">
+      <button 
+        onClick={() => navigate('/dashboard')} 
+        className="flex items-center gap-2 text-slate-500 hover:text-white transition-colors mb-10 font-bold uppercase text-xs tracking-widest"
+      >
+        <ChevronLeft size={16} /> Back to Dashboard
       </button>
 
-      <div className="max-w-2xl mx-auto bg-slate-900 border border-slate-800 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-40 h-40 bg-blue-600/5 blur-[100px] rounded-full"></div>
-
-        <div className="flex flex-col items-center text-center mb-10">
-          <div className="w-24 h-24 bg-blue-600 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-blue-900/20">
-            <User className="text-white" size={48} />
+      <div className="max-w-6xl mx-auto grid grid-cols-12 gap-10">
+        {/* LEFT COLUMN: BIO CARD */}
+        <div className="col-span-4 space-y-6">
+          <div className="bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-[3rem] p-10 text-center shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-600 to-purple-600"></div>
+            <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mx-auto mb-6 flex items-center justify-center text-white text-5xl font-black shadow-xl">
+              {userData?.name?.[0]}
+            </div>
+            <h1 className="text-3xl font-black text-white mb-2">{userData?.name}</h1>
+            <p className="text-blue-400 font-bold text-sm uppercase tracking-widest mb-6">Fullstack Developer</p>
+            
+            <div className="space-y-4 text-sm text-slate-400 border-t border-white/5 pt-6 text-left">
+              <div className="flex items-center gap-3"><Mail size={16}/> {userData?.email}</div>
+              <div className="flex items-center gap-3"><Briefcase size={16}/> MERN Specialist</div>
+              <div className="flex items-center gap-3"><MapPin size={16}/> Mohali, India</div>
+            </div>
           </div>
 
-          {isEditing ? (
-            <div className="flex items-center gap-2">
-              <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)} className="bg-slate-950 border border-blue-500 text-white text-3xl font-bold px-4 py-2 rounded-xl outline-none text-center w-full" />
-              <button onClick={() => handleUpdate('name')} className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg hover:bg-emerald-500 hover:text-white transition-all"><Check size={24} /></button>
-              <button onClick={() => setIsEditing(false)} className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all"><X size={24} /></button>
+          <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8">
+            <h3 className="text-white font-bold mb-4 flex items-center gap-2"><Code size={18}/> Quick Stats</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-white/5 rounded-2xl"><p className="text-2xl font-black text-white">{projects.length}</p><p className="text-[10px] uppercase font-bold text-slate-500">Projects</p></div>
+              <div className="p-4 bg-white/5 rounded-2xl"><p className="text-2xl font-black text-white">0</p><p className="text-[10px] uppercase font-bold text-slate-500">Solved</p></div>
             </div>
-          ) : (
-            <div className="flex items-center gap-3">
-              <h1 className="text-4xl font-black text-white tracking-tight">{userData.name}</h1>
-              <button onClick={() => setIsEditing(true)} className="text-slate-600 hover:text-blue-500 transition-colors"><Edit3 size={20} /></button>
-            </div>
-          )}
-          <p className="text-blue-500 font-bold mt-2 uppercase tracking-widest text-xs">Verified Developer</p>
+          </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center gap-4 p-5 bg-slate-950/40 rounded-3xl border border-slate-800/50">
-            <Mail className="text-slate-500" size={24} />
-            <div className="text-left flex-grow">
-              <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em]">Email Address</p>
-              <p className="text-white font-medium">{userData.email}</p>
-            </div>
-          </div>
-
-          {/* PASSWORD SECTION */}
-          <div className="p-5 bg-slate-950/40 rounded-3xl border border-slate-800/50">
-            <div className="flex items-center gap-4">
-              <Lock className="text-slate-500" size={24} />
-              <div className="text-left flex-grow">
-                <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em]">Security</p>
-                <p className="text-white font-medium">Password Hidden</p>
-              </div>
-              <button onClick={() => setIsChangingPassword(!isChangingPassword)} className="text-xs font-bold text-blue-500 hover:underline">
-                {isChangingPassword ? 'Cancel' : 'Change Password'}
-              </button>
-            </div>
+        {/* RIGHT COLUMN: RADAR CHART */}
+        <div className="col-span-8">
+          <div className="bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-[3rem] p-10 h-full flex flex-col items-center justify-center min-h-[500px]">
+            <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-tighter">Skill Radar</h2>
+            <p className="text-slate-500 text-sm mb-10">Visualizing your technical growth based on project history</p>
             
-            {isChangingPassword && (
-              <div className="mt-4 flex gap-2">
-                <input 
-                  type="password" placeholder="Enter new password" value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="flex-grow bg-slate-900 border border-slate-800 text-white px-4 py-2 rounded-xl outline-none focus:ring-1 focus:ring-blue-500"
+            <ResponsiveContainer width="100%" height={400}>
+              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                <PolarGrid stroke="#1e293b" />
+                <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: 'bold' }} />
+                <Radar
+                  name="Skills"
+                  dataKey="A"
+                  stroke="#3b82f6"
+                  fill="#3b82f6"
+                  fillOpacity={0.3}
                 />
-                <button onClick={() => handleUpdate('password')} className="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-blue-500 transition-all">Save</button>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-4 p-5 bg-slate-950/40 rounded-3xl border border-slate-800/50">
-            <Calendar className="text-slate-500" size={24} />
-            <div className="text-left">
-              <p className="text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em]">Member Since</p>
-              <p className="text-white font-medium">{new Date(userData.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
-            </div>
+              </RadarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
