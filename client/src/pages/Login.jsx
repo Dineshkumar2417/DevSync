@@ -1,27 +1,34 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, LogIn, Code, ArrowRight } from 'lucide-react';
+import { Mail, Lock, LogIn, Code } from 'lucide-react';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const navigate = useNavigate();
 
-  // THE FIX: Pulls the Render URL from Vercel settings, or defaults to local
+  // Pulls the Render URL from Vercel settings, or defaults to local
   const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // THE FIX: Uses backticks and ${} to point to the live server
       const res = await axios.post(`${API_URL}/auth/login`, formData);
       
-      // Save the token so the user stays logged in
-      localStorage.setItem('token', res.data.token);
-      
-      navigate('/dashboard');
+      // CRITICAL FIX: Save both Token and UserId for the Dashboard to work
+      if (res.data.token && res.data.userId) {
+        localStorage.setItem('token', res.data.token);
+        localStorage.setItem('userId', res.data.userId);
+        
+        // Small timeout to ensure localStorage is written before navigation
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 100);
+      } else {
+        alert("Login successful, but server data is missing. Check backend response.");
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Login Error:", err);
       alert(err.response?.data?.message || "Login failed. Please check your credentials.");
     }
   };
@@ -29,7 +36,7 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6 font-sans">
       <div className="w-full max-w-md bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden">
-        {/* Decorative background glow */}
+        {/* Background Glow Effect */}
         <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-blue-600/10 rounded-full blur-3xl"></div>
         
         <div className="text-center mb-10 relative">

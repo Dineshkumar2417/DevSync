@@ -13,28 +13,41 @@ const Dashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [projects, setProjects] = useState([]);
   const [userData, setUserData] = useState(null);
-  
+  const [isAuth, setIsAuth] = useState(false); // Added to prevent flicker
+
   const [imageFile, setImageFile] = useState(null);
   const [projectData, setProjectData] = useState({ 
     title: '', description: '', githubUrl: '', liveUrl: '',
     status: 'To-Do', priority: 'Medium', tags: '', category: 'Fullstack'
   });
 
+  // THE DEPLOYMENT FIX: Dynamic API URL
+  const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
   const userId = localStorage.getItem('userId');
+  const token = localStorage.getItem('token'); // Get token for security
 
   const fetchData = async () => {
     if (!userId) return;
     try {
-      const userRes = await axios.get(`http://localhost:5001/api/auth/user/${userId}`);
+      // Updated to use dynamic API_URL
+      const userRes = await axios.get(`${API_URL}/auth/user/${userId}`);
       setUserData(userRes.data);
-      const projectRes = await axios.get(`http://localhost:5001/api/projects/${userId}`);
+      const projectRes = await axios.get(`${API_URL}/projects/${userId}`);
       setProjects(projectRes.data);
     } catch (error) { console.error(error); }
   };
 
-  useEffect(() => { if (!userId) navigate('/login'); else fetchData(); }, [userId, location.key]);
+  useEffect(() => { 
+    // THE FLICKER FIX: Check both userId and token
+    if (!userId || !token) {
+      navigate('/login'); 
+    } else {
+      setIsAuth(true); // Confirmed logged in
+      fetchData(); 
+    }
+  }, [userId, token, location.key]);
 
-  // Analytics Logic
+  // Analytics Logic (UNCHANGED)
   const statusData = useMemo(() => {
     const counts = { 'To-Do': 0, 'In Progress': 0, 'Completed': 0 };
     projects.forEach(p => counts[p.status]++);
@@ -57,7 +70,8 @@ const Dashboard = () => {
       formData.append('ownerId', userId);
       if (imageFile) formData.append('thumbnail', imageFile);
 
-      await axios.post('http://localhost:5001/api/projects/add', formData, {
+      // Updated to use dynamic API_URL
+      await axios.post(`${API_URL}/projects/add`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
@@ -68,9 +82,12 @@ const Dashboard = () => {
     } catch (error) { alert("Project creation failed."); }
   };
 
+  // THE FLICKER FIX: Don't render UI until Auth is confirmed
+  if (!isAuth) return null;
+
   return (
     <div className="min-h-screen bg-[#020617] flex text-slate-300 font-sans">
-      {/* SIDEBAR */}
+      {/* REST OF YOUR UI REMAINS EXACTLY AS IT WAS */}
       <aside className="w-64 border-r border-white/5 bg-white/[0.02] backdrop-blur-xl p-6 flex flex-col fixed h-full z-20">
         <div className="flex items-center gap-3 mb-10 text-white px-2">
           <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg"><Code size={24} /></div>
@@ -80,7 +97,7 @@ const Dashboard = () => {
           <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-md shadow-blue-900/20"><Layout size={20}/> Overview</button>
           <button onClick={() => navigate('/profile')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-white/5 hover:text-white transition-all font-medium"><User size={20}/> My Profile</button>
         </nav>
-        <button onClick={() => { localStorage.removeItem('userId'); navigate('/login'); }} className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-red-400 mt-auto border-t border-white/5 pt-4 font-bold text-sm transition-colors"><LogOut size={18} /> Logout</button>
+        <button onClick={() => { localStorage.removeItem('userId'); localStorage.removeItem('token'); navigate('/login'); }} className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-red-400 mt-auto border-t border-white/5 pt-4 font-bold text-sm transition-colors"><LogOut size={18} /> Logout</button>
       </aside>
 
       <main className="flex-1 ml-64 p-10">
@@ -193,4 +210,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default Dashboard; 
