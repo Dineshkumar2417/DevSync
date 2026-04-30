@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -26,7 +26,8 @@ const Dashboard = () => {
 
   const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
-  const fetchData = async () => {
+  // PERFORMANCE: Memoized fetch to prevent lag
+  const fetchData = useCallback(async () => {
     const userId = localStorage.getItem('userId');
     if (!userId) return navigate('/login');
 
@@ -38,34 +39,36 @@ const Dashboard = () => {
       setUserData(userRes.data.user || userRes.data);
       setProjects(Array.isArray(projectRes.data) ? projectRes.data : []);
     } catch (error) {
-      toast.error("Database Sync Failed");
+      console.error("Sync error");
     } finally {
-      setTimeout(() => setIsInitialLoad(false), 800);
+      setIsInitialLoad(false);
     }
-  };
+  }, [API_URL, navigate]);
 
-  useEffect(() => { fetchData(); }, [location.key]);
+  useEffect(() => { 
+    fetchData(); 
+  }, [fetchData]);
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     const userId = localStorage.getItem('userId');
-    const loadToast = toast.loading("Saving project...");
+    const loadToast = toast.loading("Deploying Project...");
     
     try {
       await axios.post(`${API_URL}/projects/add`, { ...projectData, owner: userId });
-      toast.success("Project Added Successfully!", { id: loadToast });
+      toast.success("Project Deployed!", { id: loadToast });
       setIsModalOpen(false);
       setProjectData({ title: '', description: '', githubUrl: '', liveUrl: '', status: 'Completed', category: 'Fullstack' });
       fetchData(); 
     } catch (error) { 
-        toast.error("Failed to save project", { id: loadToast });
+        toast.error("Failed to Save", { id: loadToast });
     } finally {
         setIsSubmitting(false);
     }
   };
 
-  // Charts Logic
+  // Charts Optimization
   const statusData = useMemo(() => {
     const counts = { 'To-Do': 0, 'In Progress': 0, 'Completed': 0 };
     projects.forEach(p => { if(counts[p.status] !== undefined) counts[p.status]++; });
@@ -84,44 +87,52 @@ const Dashboard = () => {
 
   if (isInitialLoad) return (
     <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center">
-      <Loader2 className="w-10 h-10 text-blue-600 animate-spin mb-4" />
-      <p className="text-blue-500 font-bold uppercase tracking-widest text-[10px]">Syncing Workspace</p>
+      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+      <p className="text-blue-500 font-black text-[10px] tracking-[0.3em] uppercase animate-pulse">Syncing Atlas...</p>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#020617] flex text-slate-300 font-sans relative">
-      <aside className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-white/5 bg-[#020617] p-6 flex flex-col transition-transform lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+    <div className="min-h-screen bg-[#020617] flex text-slate-300 font-sans relative overflow-x-hidden">
+      
+      {/* SIDEBAR */}
+      <aside className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-white/5 bg-[#020617] p-6 flex flex-col transition-all duration-500 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}>
         <div className="flex items-center gap-3 mb-10 text-white font-black italic text-2xl uppercase">
-          <Code size={28} className="text-blue-600" /> DevSync
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20"><Code size={24} /></div>
+          DevSync
         </div>
         <nav className="flex-1 space-y-2">
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white font-bold"><Layout size={20}/> Overview</button>
+          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white font-bold transition-transform active:scale-95"><Layout size={20}/> Overview</button>
           <button onClick={() => navigate('/profile')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-all"><User size={20}/> Profile</button>
         </nav>
-        <button onClick={() => {localStorage.clear(); toast.success("Logout Success"); navigate('/login')}} className="p-4 text-slate-500 hover:text-red-500 flex items-center gap-2 transition-colors mt-auto"><LogOut size={18} /> Logout</button>
+        <button onClick={() => {localStorage.clear(); toast.success("Logged Out"); navigate('/login')}} className="p-4 text-slate-500 hover:text-red-500 flex items-center gap-2 mt-auto border-t border-white/5 pt-6 transition-colors"><LogOut size={18} /> Logout</button>
       </aside>
 
-      <main className="flex-1 lg:ml-64 p-4 md:p-10 w-full animate-in fade-in">
+      <main className="flex-1 lg:ml-64 p-4 md:p-10 w-full animate-in fade-in duration-700">
+        
+        {/* HEADER */}
         <header className="flex justify-between items-center mb-12">
           <div>
             <h2 className="text-4xl font-black text-white uppercase italic tracking-tighter">
                 HI, {userData?.name ? userData.name.toUpperCase() : "DINESH KUMAR"}!
             </h2>
-            <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest italic">Developer Workspace</p>
+            <div className="flex items-center gap-2 mt-1">
+               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+               <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest italic tracking-widest">Live Workspace</p>
+            </div>
           </div>
-          <button onClick={() => setIsModalOpen(true)} className="bg-white text-black font-black px-8 py-4 rounded-2xl flex items-center gap-2 active:scale-95 transition-all shadow-2xl">
+          <button onClick={() => setIsModalOpen(true)} className="bg-white text-black font-black px-6 py-3 md:px-8 md:py-4 rounded-2xl flex items-center gap-2 hover:bg-blue-50 transition-all active:scale-90 shadow-xl">
             <Plus size={20}/> New Project
           </button>
         </header>
 
+        {/* ANALYTICS SECTION */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {/* Status Pie Chart */}
-          <div className="bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 h-[350px]">
-            <h4 className="text-white font-bold mb-6 text-xs uppercase tracking-widest flex items-center gap-2"><CheckCircle2 size={18} className="text-blue-500" /> Project Status</h4>
+          <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 h-[350px] transition-all hover:bg-white/[0.04]">
+            <h4 className="text-white font-bold mb-6 text-[10px] uppercase tracking-[0.2em] flex items-center gap-2"><CheckCircle2 size={16} className="text-blue-500" /> Project Status</h4>
             <ResponsiveContainer width="100%" height="80%">
               <PieChart>
-                <Pie data={statusData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                <Pie data={statusData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" animationDuration={1000}>
                   {statusData.map((entry, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
                 </Pie>
                 <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '15px' }} />
@@ -130,9 +141,8 @@ const Dashboard = () => {
             </ResponsiveContainer>
           </div>
 
-          {/* Skill Radar Chart RESTORED */}
-          <div className="bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-8 h-[350px]">
-            <h4 className="text-white font-bold mb-6 text-xs uppercase tracking-widest flex items-center gap-2"><Radar size={18} className="text-purple-500" /> Tech Proficiency</h4>
+          <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 h-[350px] transition-all hover:bg-white/[0.04]">
+            <h4 className="text-white font-bold mb-6 text-[10px] uppercase tracking-[0.2em] flex items-center gap-2"><Radar size={16} className="text-purple-500" /> Tech Proficiency</h4>
             <ResponsiveContainer width="100%" height="80%">
               <RadarChart cx="50%" cy="50%" outerRadius="80%" data={skillRadarData}>
                 <PolarGrid stroke="#1e293b" />
@@ -143,20 +153,20 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Project Grid */}
+        {/* PROJECTS GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {projects.map((p) => (
-            <div key={p._id} className="bg-white/[0.03] border border-white/5 rounded-[2.5rem] overflow-hidden group flex flex-col shadow-xl transition-all hover:scale-[1.02]">
-              <div className="h-48 bg-slate-950/40 flex items-center justify-center border-b border-white/5">
-                <ImageIcon size={48} className="text-slate-800" />
+          {projects.map((p, idx) => (
+            <div key={p._id} style={{animationDelay: `${idx * 100}ms`}} className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] overflow-hidden group flex flex-col shadow-xl transition-all duration-500 hover:scale-[1.03] hover:border-blue-500/30 animate-in fade-in slide-in-from-bottom-4">
+              <div className="h-44 bg-slate-950/60 flex items-center justify-center border-b border-white/5">
+                <ImageIcon size={40} className="text-slate-800 transition-transform group-hover:scale-125" />
               </div>
               <div className="p-8 grow flex flex-col">
                 <span className="text-[9px] px-2 py-1 bg-blue-500/10 text-blue-500 rounded font-bold uppercase w-fit mb-4">{p.status}</span>
-                <h3 className="text-2xl font-bold text-white mb-2 tracking-tight uppercase italic">{p.title}</h3>
-                <p className="text-slate-500 text-sm mb-6 line-clamp-2">{p.description}</p>
-                <div className="grid grid-cols-2 gap-4 mt-auto">
-                  <a href={p.githubUrl} target="_blank" rel="noreferrer" className="bg-white/5 text-center py-3 rounded-xl text-[10px] font-bold border border-white/5 transition-all hover:bg-white/10 flex items-center justify-center gap-2 font-mono italic">CODE</a>
-                  <a href={p.liveUrl} target="_blank" rel="noreferrer" className="bg-blue-600 text-white text-center py-3 rounded-xl text-[10px] font-bold shadow-lg hover:bg-blue-500 transition-all flex items-center justify-center gap-2 font-mono italic text-sm">DEMO</a>
+                <h3 className="text-xl font-bold text-white mb-2 uppercase italic tracking-tight">{p.title}</h3>
+                <p className="text-slate-500 text-xs mb-6 line-clamp-2 leading-relaxed">{p.description}</p>
+                <div className="grid grid-cols-2 gap-3 mt-auto font-mono italic">
+                  <a href={p.githubUrl} target="_blank" rel="noreferrer" className="bg-white/5 text-center py-3 rounded-xl text-[10px] font-bold border border-white/5 transition-all hover:bg-white/10 active:scale-95">CODE</a>
+                  <a href={p.liveUrl} target="_blank" rel="noreferrer" className="bg-blue-600 text-white text-center py-3 rounded-xl text-[11px] font-bold shadow-lg hover:bg-blue-500 transition-all active:scale-95 flex items-center justify-center">DEMO</a>
                 </div>
               </div>
             </div>
@@ -164,22 +174,22 @@ const Dashboard = () => {
         </div>
       </main>
 
-      {/* Modal remains same for Adding Projects */}
+      {/* MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4">
-          <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-[3rem] p-10 shadow-2xl">
-            <div className="flex justify-between items-center mb-8 text-white font-black italic">
-              <h3 className="text-2xl uppercase tracking-tighter">New Project</h3>
-              <button onClick={() => setIsModalOpen(false)}><X size={32} /></button>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-[3rem] p-10 shadow-2xl animate-in zoom-in-95">
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">New Project</h3>
+              <button onClick={() => setIsModalOpen(false)} className="hover:rotate-90 transition-transform"><X size={32} className="text-slate-500" /></button>
             </div>
             <form onSubmit={handleFormSubmit} className="space-y-4">
-              <input type="text" required placeholder="Project Title" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none" value={projectData.title} onChange={(e) => setProjectData({...projectData, title: e.target.value})} />
-              <textarea placeholder="Description" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none h-24 text-sm" value={projectData.description} onChange={(e) => setProjectData({...projectData, description: e.target.value})} />
+              <input type="text" required placeholder="Project Title" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none focus:border-blue-500/50 transition-all" value={projectData.title} onChange={(e) => setProjectData({...projectData, title: e.target.value})} />
+              <textarea placeholder="Description" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none h-24 text-sm focus:border-blue-500/50" value={projectData.description} onChange={(e) => setProjectData({...projectData, description: e.target.value})} />
               <div className="grid grid-cols-2 gap-4">
-                <input type="url" placeholder="GitHub" className="bg-slate-950 border border-white/5 text-white p-4 rounded-2xl text-xs outline-none" value={projectData.githubUrl} onChange={(e) => setProjectData({...projectData, githubUrl: e.target.value})} />
-                <input type="url" placeholder="Demo" className="bg-slate-950 border border-white/5 text-white p-4 rounded-2xl text-xs outline-none" value={projectData.liveUrl} onChange={(e) => setProjectData({...projectData, liveUrl: e.target.value})} />
+                <input type="url" placeholder="GitHub" className="bg-slate-950 border border-white/5 text-white p-4 rounded-2xl text-xs outline-none focus:border-blue-500/50" value={projectData.githubUrl} onChange={(e) => setProjectData({...projectData, githubUrl: e.target.value})} />
+                <input type="url" placeholder="Demo" className="bg-slate-950 border border-white/5 text-white p-4 rounded-2xl text-xs outline-none focus:border-blue-500/50" value={projectData.liveUrl} onChange={(e) => setProjectData({...projectData, liveUrl: e.target.value})} />
               </div>
-              <button type="submit" disabled={isSubmitting} className="w-full bg-white text-black font-black py-4 rounded-2xl shadow-xl mt-4 uppercase text-xs flex items-center justify-center gap-2">
+              <button type="submit" disabled={isSubmitting} className="w-full bg-white text-black font-black py-4 rounded-2xl shadow-xl mt-4 uppercase text-xs flex items-center justify-center gap-2 transition-all active:scale-95 disabled:bg-slate-700">
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Deploy Project"}
               </button>
             </form>
