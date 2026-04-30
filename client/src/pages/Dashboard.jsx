@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { 
-  Layout, Code, User, LogOut, Plus, X, Menu, Edit3,
+  Layout, Code, User, LogOut, Plus, X, Menu, Trash2,
   CheckCircle2, BarChart3, Image as ImageIcon, Github, ExternalLink, Loader2, Radar
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar as RechartsRadar, Tooltip, Legend } from 'recharts';
@@ -26,11 +26,9 @@ const Dashboard = () => {
 
   const API_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
-  // PERFORMANCE: Memoized fetch to prevent lag
   const fetchData = useCallback(async () => {
     const userId = localStorage.getItem('userId');
     if (!userId) return navigate('/login');
-
     try {
       const [userRes, projectRes] = await Promise.all([
         axios.get(`${API_URL}/auth/user/${userId}`),
@@ -45,128 +43,125 @@ const Dashboard = () => {
     }
   }, [API_URL, navigate]);
 
-  useEffect(() => { 
-    fetchData(); 
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // DELETE FUNCTION
+  const handleDelete = async (projectId) => {
+    if (!window.confirm("Are you sure you want to delete this project?")) return;
+    const deleteToast = toast.loading("Deleting...");
+    try {
+      await axios.delete(`${API_URL}/projects/${projectId}`);
+      toast.success("Project removed", { id: deleteToast });
+      fetchData(); // Refresh list
+    } catch (error) {
+      toast.error("Delete failed", { id: deleteToast });
+    }
+  };
 
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     const userId = localStorage.getItem('userId');
-    const loadToast = toast.loading("Deploying Project...");
-    
+    const loadToast = toast.loading("Deploying...");
     try {
       await axios.post(`${API_URL}/projects/add`, { ...projectData, owner: userId });
-      toast.success("Project Deployed!", { id: loadToast });
+      toast.success("Project Added!", { id: loadToast });
       setIsModalOpen(false);
       setProjectData({ title: '', description: '', githubUrl: '', liveUrl: '', status: 'Completed', category: 'Fullstack' });
       fetchData(); 
     } catch (error) { 
-        toast.error("Failed to Save", { id: loadToast });
+        toast.error("Failed", { id: loadToast });
     } finally {
         setIsSubmitting(false);
     }
   };
 
-  // Charts Optimization
   const statusData = useMemo(() => {
     const counts = { 'To-Do': 0, 'In Progress': 0, 'Completed': 0 };
     projects.forEach(p => { if(counts[p.status] !== undefined) counts[p.status]++; });
     return Object.keys(counts).map(key => ({ name: key, value: counts[key] }));
   }, [projects]);
 
-  const skillRadarData = [
-    { subject: 'Frontend', A: 90 },
-    { subject: 'Backend', A: 85 },
-    { subject: 'DB', A: 80 },
-    { subject: 'Logic', A: 95 },
-    { subject: 'Python', A: 70 },
-  ];
-
   const COLORS = ['#3b82f6', '#f59e0b', '#10b981'];
 
   if (isInitialLoad) return (
     <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center">
-      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-      <p className="text-blue-500 font-black text-[10px] tracking-[0.3em] uppercase animate-pulse">Syncing Atlas...</p>
+      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+      <p className="text-blue-500 font-black text-[10px] tracking-widest mt-4 uppercase">Syncing Atlas...</p>
     </div>
   );
 
   return (
     <div className="min-h-screen bg-[#020617] flex text-slate-300 font-sans relative overflow-x-hidden">
       
-      {/* SIDEBAR */}
-      <aside className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-white/5 bg-[#020617] p-6 flex flex-col transition-all duration-500 lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}>
+      {/* Sidebar */}
+      <aside className={`fixed inset-y-0 left-0 z-40 w-64 border-r border-white/5 bg-[#020617] p-6 flex flex-col transition-all lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex items-center gap-3 mb-10 text-white font-black italic text-2xl uppercase">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20"><Code size={24} /></div>
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg"><Code size={24} /></div>
           DevSync
         </div>
         <nav className="flex-1 space-y-2">
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white font-bold transition-transform active:scale-95"><Layout size={20}/> Overview</button>
+          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600 text-white font-bold"><Layout size={20}/> Overview</button>
           <button onClick={() => navigate('/profile')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-all"><User size={20}/> Profile</button>
         </nav>
-        <button onClick={() => {localStorage.clear(); toast.success("Logged Out"); navigate('/login')}} className="p-4 text-slate-500 hover:text-red-500 flex items-center gap-2 mt-auto border-t border-white/5 pt-6 transition-colors"><LogOut size={18} /> Logout</button>
+        <button onClick={() => {localStorage.clear(); toast.success("Logout"); navigate('/login')}} className="p-4 text-slate-500 hover:text-red-500 flex items-center gap-2 mt-auto border-t border-white/5 pt-6"><LogOut size={18} /> Logout</button>
       </aside>
 
       <main className="flex-1 lg:ml-64 p-4 md:p-10 w-full animate-in fade-in duration-700">
-        
-        {/* HEADER */}
         <header className="flex justify-between items-center mb-12">
           <div>
             <h2 className="text-4xl font-black text-white uppercase italic tracking-tighter">
-                HI, {userData?.name ? userData.name.toUpperCase() : "DINESH KUMAR"}!
+                {userData?.name ? `HI, ${userData.name.toUpperCase()}!` : "DASHBOARD"}
             </h2>
-            <div className="flex items-center gap-2 mt-1">
-               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-               <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest italic tracking-widest">Live Workspace</p>
-            </div>
+            <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest italic mt-1">Live Workspace</p>
           </div>
-          <button onClick={() => setIsModalOpen(true)} className="bg-white text-black font-black px-6 py-3 md:px-8 md:py-4 rounded-2xl flex items-center gap-2 hover:bg-blue-50 transition-all active:scale-90 shadow-xl">
+          <button onClick={() => setIsModalOpen(true)} className="bg-white text-black font-black px-8 py-4 rounded-2xl flex items-center gap-2 hover:bg-blue-50 transition-all active:scale-90 shadow-xl">
             <Plus size={20}/> New Project
           </button>
         </header>
 
-        {/* ANALYTICS SECTION */}
+        {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 h-[350px] transition-all hover:bg-white/[0.04]">
-            <h4 className="text-white font-bold mb-6 text-[10px] uppercase tracking-[0.2em] flex items-center gap-2"><CheckCircle2 size={16} className="text-blue-500" /> Project Status</h4>
+          <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 h-[350px]">
+            <h4 className="text-white font-bold mb-6 text-[10px] uppercase tracking-widest flex items-center gap-2"><CheckCircle2 size={16} className="text-blue-500" /> Statistics</h4>
             <ResponsiveContainer width="100%" height="80%">
               <PieChart>
-                <Pie data={statusData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" animationDuration={1000}>
+                <Pie data={statusData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
                   {statusData.map((entry, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
                 </Pie>
                 <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '15px' }} />
-                <Legend verticalAlign="bottom" height={36}/>
               </PieChart>
             </ResponsiveContainer>
           </div>
 
-          <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 h-[350px] transition-all hover:bg-white/[0.04]">
-            <h4 className="text-white font-bold mb-6 text-[10px] uppercase tracking-[0.2em] flex items-center gap-2"><Radar size={16} className="text-purple-500" /> Tech Proficiency</h4>
-            <ResponsiveContainer width="100%" height="80%">
-              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={skillRadarData}>
-                <PolarGrid stroke="#1e293b" />
-                <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 10, fontWeight: 'bold' }} />
-                <RechartsRadar name="Dinesh" dataKey="A" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.5} />
-              </RadarChart>
-            </ResponsiveContainer>
+          <div className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] p-8 h-[350px] flex items-center justify-center">
+             <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest italic">Analytics Engine Active</p>
           </div>
         </div>
 
-        {/* PROJECTS GRID */}
+        {/* Projects Grid with Delete Button */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {projects.map((p, idx) => (
-            <div key={p._id} style={{animationDelay: `${idx * 100}ms`}} className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] overflow-hidden group flex flex-col shadow-xl transition-all duration-500 hover:scale-[1.03] hover:border-blue-500/30 animate-in fade-in slide-in-from-bottom-4">
+          {projects.map((p) => (
+            <div key={p._id} className="bg-white/[0.02] border border-white/5 rounded-[2.5rem] overflow-hidden group flex flex-col shadow-xl transition-all hover:scale-[1.02] hover:border-blue-500/30 relative">
+              
+              {/* DELETE ICON */}
+              <button 
+                onClick={() => handleDelete(p._id)}
+                className="absolute top-6 right-6 p-2 bg-red-500/10 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white z-10"
+              >
+                <Trash2 size={16} />
+              </button>
+
               <div className="h-44 bg-slate-950/60 flex items-center justify-center border-b border-white/5">
-                <ImageIcon size={40} className="text-slate-800 transition-transform group-hover:scale-125" />
+                <ImageIcon size={40} className="text-slate-800" />
               </div>
               <div className="p-8 grow flex flex-col">
                 <span className="text-[9px] px-2 py-1 bg-blue-500/10 text-blue-500 rounded font-bold uppercase w-fit mb-4">{p.status}</span>
                 <h3 className="text-xl font-bold text-white mb-2 uppercase italic tracking-tight">{p.title}</h3>
-                <p className="text-slate-500 text-xs mb-6 line-clamp-2 leading-relaxed">{p.description}</p>
-                <div className="grid grid-cols-2 gap-3 mt-auto font-mono italic">
-                  <a href={p.githubUrl} target="_blank" rel="noreferrer" className="bg-white/5 text-center py-3 rounded-xl text-[10px] font-bold border border-white/5 transition-all hover:bg-white/10 active:scale-95">CODE</a>
-                  <a href={p.liveUrl} target="_blank" rel="noreferrer" className="bg-blue-600 text-white text-center py-3 rounded-xl text-[11px] font-bold shadow-lg hover:bg-blue-500 transition-all active:scale-95 flex items-center justify-center">DEMO</a>
+                <p className="text-slate-500 text-xs mb-6 line-clamp-2">{p.description}</p>
+                <div className="grid grid-cols-2 gap-3 mt-auto">
+                  <a href={p.githubUrl} target="_blank" rel="noreferrer" className="bg-white/5 text-center py-3 rounded-xl text-[10px] font-bold border border-white/5 transition-all hover:bg-white/10">CODE</a>
+                  <a href={p.liveUrl} target="_blank" rel="noreferrer" className="bg-blue-600 text-white text-center py-3 rounded-xl text-[10px] font-bold shadow-lg hover:bg-blue-500">DEMO</a>
                 </div>
               </div>
             </div>
@@ -174,22 +169,22 @@ const Dashboard = () => {
         </div>
       </main>
 
-      {/* MODAL */}
+      {/* Modal logic remains same */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-[3rem] p-10 shadow-2xl animate-in zoom-in-95">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
+          <div className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-[3rem] p-10 shadow-2xl">
             <div className="flex justify-between items-center mb-8">
               <h3 className="text-2xl font-black text-white uppercase italic tracking-tighter">New Project</h3>
-              <button onClick={() => setIsModalOpen(false)} className="hover:rotate-90 transition-transform"><X size={32} className="text-slate-500" /></button>
+              <button onClick={() => setIsModalOpen(false)}><X size={32} className="text-slate-500" /></button>
             </div>
             <form onSubmit={handleFormSubmit} className="space-y-4">
-              <input type="text" required placeholder="Project Title" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none focus:border-blue-500/50 transition-all" value={projectData.title} onChange={(e) => setProjectData({...projectData, title: e.target.value})} />
-              <textarea placeholder="Description" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none h-24 text-sm focus:border-blue-500/50" value={projectData.description} onChange={(e) => setProjectData({...projectData, description: e.target.value})} />
+              <input type="text" required placeholder="Project Title" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none focus:border-blue-500/50" value={projectData.title} onChange={(e) => setProjectData({...projectData, title: e.target.value})} />
+              <textarea placeholder="Description" className="w-full bg-slate-950 border border-white/5 text-white p-4 rounded-2xl outline-none h-24 text-sm" value={projectData.description} onChange={(e) => setProjectData({...projectData, description: e.target.value})} />
               <div className="grid grid-cols-2 gap-4">
-                <input type="url" placeholder="GitHub" className="bg-slate-950 border border-white/5 text-white p-4 rounded-2xl text-xs outline-none focus:border-blue-500/50" value={projectData.githubUrl} onChange={(e) => setProjectData({...projectData, githubUrl: e.target.value})} />
-                <input type="url" placeholder="Demo" className="bg-slate-950 border border-white/5 text-white p-4 rounded-2xl text-xs outline-none focus:border-blue-500/50" value={projectData.liveUrl} onChange={(e) => setProjectData({...projectData, liveUrl: e.target.value})} />
+                <input type="url" placeholder="GitHub" className="bg-slate-950 border border-white/5 text-white p-4 rounded-2xl text-xs" value={projectData.githubUrl} onChange={(e) => setProjectData({...projectData, githubUrl: e.target.value})} />
+                <input type="url" placeholder="Demo" className="bg-slate-950 border border-white/5 text-white p-4 rounded-2xl text-xs" value={projectData.liveUrl} onChange={(e) => setProjectData({...projectData, liveUrl: e.target.value})} />
               </div>
-              <button type="submit" disabled={isSubmitting} className="w-full bg-white text-black font-black py-4 rounded-2xl shadow-xl mt-4 uppercase text-xs flex items-center justify-center gap-2 transition-all active:scale-95 disabled:bg-slate-700">
+              <button type="submit" disabled={isSubmitting} className="w-full bg-white text-black font-black py-4 rounded-2xl shadow-xl mt-4 uppercase text-xs flex items-center justify-center gap-2 active:scale-95 disabled:bg-slate-700">
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Deploy Project"}
               </button>
             </form>

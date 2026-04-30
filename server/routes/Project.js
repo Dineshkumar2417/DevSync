@@ -12,6 +12,17 @@ router.get('/:userId', async (req, res) => {
     }
 });
 
+// DELETE PROJECT
+router.delete('/:projectId', async (req, res) => {
+    try {
+        const project = await Project.findByIdAndDelete(req.params.projectId);
+        if (!project) return res.status(404).json({ message: "Project not found" });
+        res.status(200).json({ message: "Project deleted successfully" });
+    } catch (err) {
+        res.status(500).json({ message: "Delete failed", error: err });
+    }
+});
+
 // 2. ADD PROJECT (JSON BYPASS - NO MULTER NEEDED)
 router.post('/add', async (req, res) => {
     console.log("Incoming Data:", req.body); // Terminal mein check karna
