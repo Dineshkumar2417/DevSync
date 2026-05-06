@@ -6,10 +6,11 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
 const router = express.Router();
 
+// --- CLOUDINARY SETUP ---
 cloudinary.config({ 
   cloud_name: 'dlgxcysrt', 
   api_key: '481515562155775', 
-  api_secret: '**********' 
+  api_secret: 'Mel2XB7R604evx5gzLbTfKfHaSQ' // 
 });
 
 const storage = new CloudinaryStorage({
@@ -22,6 +23,7 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage: storage });
 
+// GET PROJECTS
 router.get('/:userId', async (req, res) => {
     try {
         const projects = await Project.find({ owner: req.params.userId });
@@ -31,11 +33,12 @@ router.get('/:userId', async (req, res) => {
     }
 });
 
+// ADD PROJECT
 router.post('/add', upload.single('thumbnail'), async (req, res) => {
     try {
         const { title, description, githubUrl, liveUrl, status, category, owner } = req.body;
         
-        // 🔥 YAHAN HAI ASLI LINK 🔥
+        // Agar image aayi toh path save hoga, warna khali string
         const imageUrl = req.file ? req.file.path : "";
 
         const newProject = new Project({
@@ -52,10 +55,12 @@ router.post('/add', upload.single('thumbnail'), async (req, res) => {
         await newProject.save();
         res.status(201).json(newProject);
     } catch (err) {
-        res.status(500).json({ message: "Upload failed" });
+        console.error("Cloudinary Error Details:", err);
+        res.status(500).json({ message: "Upload failed", error: err.message });
     }
 });
 
+// PUT (EDIT) PROJECT
 router.put('/:projectId', upload.single('thumbnail'), async (req, res) => {
     try {
         const updateData = { ...req.body };
@@ -70,6 +75,7 @@ router.put('/:projectId', upload.single('thumbnail'), async (req, res) => {
     }
 });
 
+// DELETE PROJECT
 router.delete('/:projectId', async (req, res) => {
     try {
         await Project.findByIdAndDelete(req.params.projectId);
