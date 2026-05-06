@@ -1,11 +1,28 @@
 import express from 'express';
 import Project from '../models/Project.js';
 import multer from 'multer';
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
 const router = express.Router();
 
-// Multer Setup (Memory storage use kar rahe hain taaki image handling asaan ho)
-const storage = multer.memoryStorage();
+// 🔥 CLOUDINARY CONFIGURATION 🔥
+// Inhe apne dashboard se replace kar lo
+cloudinary.config({ 
+  cloud_name: 'dlgxcysrt', 
+  api_key: 'APNI_API_KEY_YAHAN_DALO', 
+  api_secret: 'APNA_API_SECRET_YAHAN_DALO' 
+});
+
+// Cloudinary Storage Setup
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'devsync_projects',
+    allowed_formats: ['jpg', 'png', 'jpeg'],
+  },
+});
+
 const upload = multer({ storage: storage });
 
 // 1. GET PROJECTS
@@ -18,20 +35,13 @@ router.get('/:userId', async (req, res) => {
     }
 });
 
-// 2. ADD PROJECT (Ab Multer image aur text dono handle karega)
+// 2. ADD PROJECT (With Cloudinary Image)
 router.post('/add', upload.single('thumbnail'), async (req, res) => {
-    console.log("Incoming Body:", req.body); 
-    
     try {
         const { title, description, githubUrl, liveUrl, status, category, owner } = req.body;
         
-        if (!title || !owner) {
-            return res.status(400).json({ message: "Title and Owner ID are required" });
-        }
-
-        // Agar image aayi hai toh hum abhi ke liye placeholder link ya buffer use kar sakte hain
-        // Note: Production mein Cloudinary use karna chahiye, abhi hum image link manually ya default rakh rahe hain
-        const thumbnail = req.file ? "https://via.placeholder.com/400x200?text=Project+Image" : "";
+        // Agar image aayi hai toh Cloudinary ka secure URL milega
+        const imageUrl = req.file ? req.file.path : "";
 
         const newProject = new Project({
             title,
@@ -41,36 +51,37 @@ router.post('/add', upload.single('thumbnail'), async (req, res) => {
             status: status || 'Completed',
             category: category || 'Fullstack',
             owner,
-            thumbnail: thumbnail // Model mein thumbnail field honi chahiye
+            thumbnail: imageUrl // Ab asli Cloudinary link database mein jayega
         });
 
         await newProject.save();
         res.status(201).json(newProject);
     } catch (err) {
-        console.error("Save Error:", err);
-        res.status(500).json({ message: "Database save failed" });
+        console.error("Cloudinary Save Error:", err);
+        res.status(500).json({ message: "Upload failed" });
     }
 });
 
-// 3. EDIT/UPDATE PROJECT (Jo 404 aa raha tha, wo isse fix hoga)
+// 3. EDIT PROJECT
 router.put('/:projectId', upload.single('thumbnail'), async (req, res) => {
     try {
-        const updatedData = { ...req.body };
-        const project = await Project.findByIdAndUpdate(req.params.projectId, updatedData, { new: true });
-        
-        if (!project) return res.status(404).json({ message: "Project not found" });
+        const updateData = { ...req.body };
+        if (req.file) {
+            updateData.thumbnail = req.file.path;
+        }
+
+        const project = await Project.findByIdAndUpdate(req.params.projectId, updateData, { new: true });
         res.status(200).json(project);
     } catch (err) {
         res.status(500).json({ message: "Update failed" });
     }
 });
 
-// DELETE PROJECT
+// 4. DELETE PROJECT
 router.delete('/:projectId', async (req, res) => {
     try {
-        const project = await Project.findByIdAndDelete(req.params.projectId);
-        if (!project) return res.status(404).json({ message: "Project not found" });
-        res.status(200).json({ message: "Project deleted successfully" });
+        await Project.findByIdAndDelete(req.params.projectId);
+        res.status(200).json({ message: "Deleted" });
     } catch (err) {
         res.status(500).json({ message: "Delete failed" });
     }
