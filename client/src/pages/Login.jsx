@@ -22,8 +22,14 @@ const Login = () => {
       const res = await axios.post(`${API_URL}/auth/login`, formData);
       
       // Instant Storage for speed
+      // Instant Storage for speed (FIXED)
+      const actualUserId = res.data.userId || res.data._id || (res.data.user && res.data.user._id);
+      
       localStorage.setItem('token', res.data.token);
-      localStorage.setItem('userId', res.data.userId);
+      localStorage.setItem('userId', actualUserId);
+      
+      // Console mein verify karne ke liye (F12 daba kar dekh lena)
+      console.log("Logged in successfully! Saved User ID:", actualUserId);
       
       toast.success("Welcome back!", { id: loginToast });
       
