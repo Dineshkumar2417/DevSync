@@ -6,15 +6,12 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
 const router = express.Router();
 
-// 🔥 CLOUDINARY CONFIGURATION 🔥
-// Inhe apne dashboard se replace kar lo
 cloudinary.config({ 
   cloud_name: 'dlgxcysrt', 
-  api_key: 'APNI_API_KEY_YAHAN_DALO', 
-  api_secret: 'APNA_API_SECRET_YAHAN_DALO' 
+  api_key: '481515562155775', 
+  api_secret: '**********' 
 });
 
-// Cloudinary Storage Setup
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
@@ -25,7 +22,6 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage: storage });
 
-// 1. GET PROJECTS
 router.get('/:userId', async (req, res) => {
     try {
         const projects = await Project.find({ owner: req.params.userId });
@@ -35,12 +31,11 @@ router.get('/:userId', async (req, res) => {
     }
 });
 
-// 2. ADD PROJECT (With Cloudinary Image)
 router.post('/add', upload.single('thumbnail'), async (req, res) => {
     try {
         const { title, description, githubUrl, liveUrl, status, category, owner } = req.body;
         
-        // Agar image aayi hai toh Cloudinary ka secure URL milega
+        // 🔥 YAHAN HAI ASLI LINK 🔥
         const imageUrl = req.file ? req.file.path : "";
 
         const newProject = new Project({
@@ -51,18 +46,16 @@ router.post('/add', upload.single('thumbnail'), async (req, res) => {
             status: status || 'Completed',
             category: category || 'Fullstack',
             owner,
-            thumbnail: imageUrl // Ab asli Cloudinary link database mein jayega
+            thumbnail: imageUrl 
         });
 
         await newProject.save();
         res.status(201).json(newProject);
     } catch (err) {
-        console.error("Cloudinary Save Error:", err);
         res.status(500).json({ message: "Upload failed" });
     }
 });
 
-// 3. EDIT PROJECT
 router.put('/:projectId', upload.single('thumbnail'), async (req, res) => {
     try {
         const updateData = { ...req.body };
@@ -77,7 +70,6 @@ router.put('/:projectId', upload.single('thumbnail'), async (req, res) => {
     }
 });
 
-// 4. DELETE PROJECT
 router.delete('/:projectId', async (req, res) => {
     try {
         await Project.findByIdAndDelete(req.params.projectId);
