@@ -84,6 +84,7 @@ const Dashboard = () => {
     }
   };
 
+  // 🔥 THE MASTER FIX: Smart Form Submit jo har haal mein chalega 🔥
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -91,17 +92,34 @@ const Dashboard = () => {
     const loadToast = toast.loading(editingProjectId ? "Updating..." : "Deploying...");
     
     try {
-      const formData = new FormData();
-      Object.keys(projectData).forEach(key => formData.append(key, projectData[key]));
-      formData.append('owner', userId);
-      if (imageFile) formData.append('thumbnail', imageFile);
+      // Data with explicit IDs so backend doesn't get confused
+      const payload = {
+        ...projectData,
+        owner: userId,   
+        userId: userId    
+      };
+
+      let dataToSend;
+      let headersConfig = {};
+
+      if (imageFile) {
+        // Fallback for image upload via Multer
+        dataToSend = new FormData();
+        Object.keys(payload).forEach(key => dataToSend.append(key, payload[key]));
+        dataToSend.append('thumbnail', imageFile);
+        headersConfig = { headers: { 'Content-Type': 'multipart/form-data' } };
+      } else {
+        // Direct JSON push (Yahi tera problem solve karega!)
+        dataToSend = payload;
+        headersConfig = { headers: { 'Content-Type': 'application/json' } };
+      }
 
       if (editingProjectId) {
-        await axios.put(`${API_URL}/projects/${editingProjectId}`, formData);
+        await axios.put(`${API_URL}/projects/${editingProjectId}`, dataToSend, headersConfig);
         toast.success("Project Updated!", { id: loadToast });
       } else {
-        await axios.post(`${API_URL}/projects/add`, formData);
-        toast.success("Project Live!", { id: loadToast });
+        await axios.post(`${API_URL}/projects/add`, dataToSend, headersConfig);
+        toast.success("Project Live! 🎉", { id: loadToast });
       }
 
       setIsModalOpen(false);
@@ -110,9 +128,11 @@ const Dashboard = () => {
       setProjectData({ title: '', description: '', githubUrl: '', liveUrl: '', status: 'Completed', category: 'Fullstack' });
       fetchData(); 
     } catch (error) { 
-        toast.error("Operation Failed", { id: loadToast });
+      console.error("Deploy Error:", error.response?.data || error.message);
+      const errorMsg = error.response?.data?.message || "Operation Failed";
+      toast.error(errorMsg, { id: loadToast });
     } finally {
-        setIsSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
