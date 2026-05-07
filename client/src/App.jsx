@@ -1,11 +1,22 @@
+import { useEffect } from 'react'; // Added useEffect
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast'; // Import this
+import { Toaster } from 'react-hot-toast';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Register from './pages/Register';
 
 function App() {
+  // 🔥 GLOBAL THEME CHECK: Jab bhi app load hoga, ye check karega
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'light') {
+      document.documentElement.classList.remove('dark');
+    } else {
+      document.documentElement.classList.add('dark'); // Default dark hi rahega
+    }
+  }, []);
+
   return (
     <Router>
       {/* Global Toaster Configuration */}
