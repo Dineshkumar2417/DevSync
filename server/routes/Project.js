@@ -10,7 +10,7 @@ const router = express.Router();
 cloudinary.config({ 
   cloud_name: 'dlgxcysrt', 
   api_key: '481515562155775', 
-  api_secret: 'Mel2XB7R604evx5gzLbTfKfHaSQ' // 
+  api_secret: 'Mel2XB7R604evx5gzLbTfKfHaSQ' 
 });
 
 const storage = new CloudinaryStorage({
@@ -23,7 +23,17 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage: storage });
 
-// GET PROJECTS
+// 🌍 PUBLIC ROUTE: Recruiter ke liye (Bina login ke chalega)
+router.get('/public/:userId', async (req, res) => {
+    try {
+        const projects = await Project.find({ owner: req.params.userId });
+        res.status(200).json(projects);
+    } catch (err) {
+        res.status(500).json({ message: "Public fetch failed" });
+    }
+});
+
+// GET PROJECTS (Protected)
 router.get('/:userId', async (req, res) => {
     try {
         const projects = await Project.find({ owner: req.params.userId });
@@ -37,25 +47,16 @@ router.get('/:userId', async (req, res) => {
 router.post('/add', upload.single('thumbnail'), async (req, res) => {
     try {
         const { title, description, githubUrl, liveUrl, status, category, owner } = req.body;
-        
-        // Agar image aayi toh path save hoga, warna khali string
         const imageUrl = req.file ? req.file.path : "";
-
         const newProject = new Project({
-            title,
-            description,
-            githubUrl,
-            liveUrl,
+            title, description, githubUrl, liveUrl,
             status: status || 'Completed',
             category: category || 'Fullstack',
-            owner,
-            thumbnail: imageUrl 
+            owner, thumbnail: imageUrl 
         });
-
         await newProject.save();
         res.status(201).json(newProject);
     } catch (err) {
-        console.error("Cloudinary Error Details:", err);
         res.status(500).json({ message: "Upload failed", error: err.message });
     }
 });
@@ -64,10 +65,7 @@ router.post('/add', upload.single('thumbnail'), async (req, res) => {
 router.put('/:projectId', upload.single('thumbnail'), async (req, res) => {
     try {
         const updateData = { ...req.body };
-        if (req.file) {
-            updateData.thumbnail = req.file.path;
-        }
-
+        if (req.file) { updateData.thumbnail = req.file.path; }
         const project = await Project.findByIdAndUpdate(req.params.projectId, updateData, { new: true });
         res.status(200).json(project);
     } catch (err) {
