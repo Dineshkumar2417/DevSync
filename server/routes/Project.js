@@ -23,17 +23,20 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({ storage: storage });
 
-// 🌍 PUBLIC ROUTE: Recruiter ke liye (No Login Required)
+// 🌍 PUBLIC ROUTE: Recruiter ke liye (Bina login ke chalega)
 router.get('/public/:userId', async (req, res) => {
     try {
-        const projects = await Project.find({ owner: req.params.userId });
+        // 🔥 ERROR FIX: ID ko clean kiya taaki MongoDB crash na ho
+        const cleanId = req.params.userId.trim().replace(/[^a-zA-Z0-9]/g, "");
+        const projects = await Project.find({ owner: cleanId });
         res.status(200).json(projects);
     } catch (err) {
-        res.status(500).json({ message: "Public fetch failed" });
+        console.error("Public Route Error:", err);
+        res.status(500).json({ message: "Public fetch failed", error: err.message });
     }
 });
 
-// GET PROJECTS (Private)
+// GET PROJECTS (Protected)
 router.get('/:userId', async (req, res) => {
     try {
         const projects = await Project.find({ owner: req.params.userId });
@@ -43,25 +46,20 @@ router.get('/:userId', async (req, res) => {
     }
 });
 
-// ADD PROJECT (Fixed 500 Error logic)
+// ADD PROJECT
 router.post('/add', upload.single('thumbnail'), async (req, res) => {
     try {
         const { title, description, githubUrl, liveUrl, status, category, owner } = req.body;
         const imageUrl = req.file ? req.file.path : "";
-        
-        if(!owner) return res.status(400).json({ message: "Owner ID is missing" });
-
         const newProject = new Project({
             title, description, githubUrl, liveUrl,
             status: status || 'Completed',
             category: category || 'Fullstack',
             owner, thumbnail: imageUrl 
         });
-
         await newProject.save();
         res.status(201).json(newProject);
     } catch (err) {
-        console.error("Server Error:", err);
         res.status(500).json({ message: "Upload failed", error: err.message });
     }
 });
